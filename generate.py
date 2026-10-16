@@ -22,45 +22,97 @@ HEADERS = {
 }
 
 
+
 def gemini(prompt, temperature=0.6):
+    import time
+
     if not API_KEY:
         raise RuntimeError(
-            "Missing GEMINI_API_KEY in GitHub Actions secrets."
+            "Missing GEMINI_API_KEY. Check GitHub Actions secrets."
         )
 
     url = (
         "https://generativelanguage.googleapis.com/v1beta/"
-        f"models/{MODEL}:generateContent?key={API_KEY}"
+        f"models/{MODEL}:generateContent"
     )
 
-    response = requests.post(
-        url,
-        json={
-            "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {
-                "temperature": temperature,
-                "responseMimeType": "application/json"
-            }
+    headers = {
+        "x-goog-api-key": API_KEY,
+        "Content-Type": "application/json",
+    }
+
+    payload = {
+        "contents": [
+            {"parts": [{"text": prompt}]}
+        ],
+        "generationConfig": {
+            "temperature": temperature,
+            "responseMimeType": "application/json",
         },
-        timeout=(10, 90)
+    }
+
+    last_error = None
+
+    for attempt in range(4):
+        try:
+            response = requests.post(
+                url,
+                headers=headers,
+                json=payload,
+                timeout=(15, 180),
+            )
+
+            if response.status_code in (429, 500, 502, 503, 504):
+                response.raise_for_status()
+
+            response.raise_for_status()
+            data = response.json()
+
+            candidates = data.get("candidates", [])
+            if not candidates:
+                raise RuntimeError(
+                    "Gemini returned no candidates. Check API response."
+                )
+
+            parts = candidates[0].get("content", {}).get("parts", [])
+            result = "".join(
+                part.get("text", "") for part in parts
+            ).strip()
+
+            if not result:
+                raise RuntimeError(
+                    "Gemini returned an empty response."
+                )
+
+            return result
+
+        except (requests.Timeout, requests.ConnectionError) as exc:
+            last_error = exc
+
+        except requests.HTTPError as exc:
+            status = exc.response.status_code
+
+            if status not in (429, 500, 502, 503, 504):
+                raise RuntimeError(
+                    f"Gemini API HTTP {status}: "
+                    f"{exc.response.text[:1000]}"
+                ) from exc
+
+            last_error = exc
+
+        if attempt < 3:
+            wait_seconds = 10 * (attempt + 1)
+            print(
+                f"Gemini request failed on attempt {attempt + 1}/4. "
+                f"Retrying in {wait_seconds} seconds..."
+            )
+            time.sleep(wait_seconds)
+
+    raise RuntimeError(
+        "Gemini API failed after 4 attempts. "
+        f"Last error: {last_error}"
     )
-    response.raise_for_status()
 
-    data = response.json()
-    candidates = data.get("candidates", [])
-
-    if not candidates:
-        raise RuntimeError(
-            "Gemini returned no usable response. Check API quota and model access."
-        )
-
-    parts = candidates[0].get("content", {}).get("parts", [])
-    text = "".join(part.get("text", "") for part in parts)
-
-    if not text.strip():
-        raise RuntimeError("Gemini returned an empty response.")
-
-    return text
 
 
 def json_from(text):
