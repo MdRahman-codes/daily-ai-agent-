@@ -1,62 +1,93 @@
+
 name: Daily AI Agent
+
 on:
   workflow_dispatch:
   schedule:
-    # 01:00 UTC = 07:00 Bangladesh Standard Time (UTC+6)
+    # 01:00 UTC = 07:00 Bangladesh time
     - cron: '0 1 * * *'
+
 permissions:
   contents: read
   pages: write
   id-token: write
+
 concurrency:
   group: pages
   cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: pip install requests
+
+      - name: Install dependencies
+        run: pip install requests
+
       - name: Generate daily briefing
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        GEMINI_MODEL: gemini-3.6-flash
+          GEMINI_MODEL: gemini-3.6-flash
         run: python generate.py
-      - uses: actions/upload-pages-artifact@v3
+
+      - name: Upload GitHub Pages artifact
+        uses: actions/upload-pages-artifact@v3
         with:
           path: site
-      - uses: actions/upload-artifact@v4
+
+      - name: Upload generated content
+        uses: actions/upload-artifact@v4
         with:
           name: generated-site
           path: site/content.json
+
   deploy:
     needs: build
     runs-on: ubuntu-latest
+
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+
     outputs:
       page_url: ${{ steps.deployment.outputs.page_url }}
+
     steps:
-      - uses: actions/deploy-pages@v4
+      - name: Deploy GitHub Pages
+        uses: actions/deploy-pages@v4
         id: deployment
+
   notify:
     needs: deploy
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - uses: actions/download-artifact@v4
+
+      - name: Download generated content
+        uses: actions/download-artifact@v4
         with:
           name: generated-site
           path: site
-      - run: pip install requests
-      - name: Send three Telegram notifications
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Send Telegram notifications
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
