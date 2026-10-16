@@ -1,65 +1,66 @@
-
 name: Daily AI Agent
 
 on:
   workflow_dispatch:
   schedule:
-    # 01:00 UTC = 07:00 Bangladesh time
+    # 01:00 UTC = 07:00 Bangladesh Standard Time (UTC+6)
     - cron: '0 1 * * *'
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: pages
-  cancel-in-progress: true
+  group: daily-ai-agent-pages
+  cancel-in-progress: false
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
+    timeout-minutes: 20
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-
+          cache: 'pip'
+          cache-dependency-path: requirements.txt
       - name: Install dependencies
-        run: pip install requests
-
+        run: python -m pip install --upgrade pip && pip install -r requirements.txt
+      - name: Run local tests
+        run: python -m unittest discover -s tests -v
       - name: Generate daily briefing
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GEMINI_MODEL: gemini-3.6-flash
+          GEMINI_MODEL: gemini-3.8-flash
+          GEMINI_FALLBACK_MODELS: gemini-3.6-flash,gemini-3.5-flash-lite
+          GEMINI_RETRIES_PER_MODEL: '3'
         run: python generate.py
-
       - name: Upload GitHub Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: site
-
-      - name: Upload generated content
+      - name: Upload generated content for Telegram
         uses: actions/upload-artifact@v4
         with:
           name: generated-site
           path: site/content.json
+          if-no-files-found: error
+          retention-days: 1
 
   deploy:
     needs: build
     runs-on: ubuntu-latest
-
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-
     outputs:
       page_url: ${{ steps.deployment.outputs.page_url }}
-
     steps:
       - name: Deploy GitHub Pages
         uses: actions/deploy-pages@v4
@@ -68,25 +69,21 @@ jobs:
   notify:
     needs: deploy
     runs-on: ubuntu-latest
-
+    timeout-minutes: 5
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-
       - name: Download generated content
         uses: actions/download-artifact@v4
         with:
           name: generated-site
           path: site
-
       - name: Install dependencies
-        run: pip install requests
-
+        run: python -m pip install --upgrade pip && pip install -r requirements.txt
       - name: Send Telegram notifications
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
