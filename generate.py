@@ -27,37 +27,121 @@ def json_from(text):
     return json.loads(text)
 
 
+
 def get_research_paper():
-    # Pull an actual paper record from arXiv; title, authors, abstract and URL are source metadata.
-    queries = ['all:cybersecurity OR all:computer_security', 'all:web_development OR cat:cs.SE', 'all:machine_learning OR all:artificial_intelligence']
     import random
+    import time
+
+    queries = [
+        'all:cybersecurity OR all:computer_security',
+        'all:web_development OR cat:cs.SE',
+        'all:machine_learning OR all:artificial_intelligence'
+    ]
+
     query = random.choice(queries)
     url = 'https://export.arxiv.org/api/query'
-    response = requests.get(url, params={'search_query': query, 'start': 0, 'max_results': 20, 'sortBy': 'submittedDate', 'sortOrder': 'descending'}, timeout=30,
-                            headers={'User-Agent': 'DailyAIStudyAgent/1.0 contact: project-owner'})
-    response.raise_for_status()
+
+    response = None
+
+    # Retry if arXiv is temporarily slow.
+    for attempt in range(3):
+        try:
+            response = requests.get(
+                url,
+                params={
+                    'search_query': query,
+                    'start': 0,
+                    'max_results': 20,
+                    'sortBy': 'submittedDate',
+                    'sortOrder': 'descending'
+                },
+                timeout=(10, 60),
+                headers={
+                    'User-Agent': 'DailyAIStudyAgent/1.0'
+                }
+            )
+            response.raise_for_status()
+            break
+        except requests.RequestException:
+            if attempt == 2:
+                raise RuntimeError(
+                    'Could not retrieve research papers from arXiv '
+                    'after 3 attempts. Please try again later.'
+                )
+            time.sleep(2 ** (attempt + 1))
+
     root = ET.fromstring(response.text)
     ns = {'a': 'http://www.w3.org/2005/Atom'}
     entries = root.findall('a:entry', ns)
+
     if not entries:
-        raise RuntimeError('arXiv returned no papers today.')
-    # Pick first result with a useful abstract and stable arXiv identifier.
+        raise RuntimeError('arXiv returned no papers for this query.')
+
     entry = entries[0]
-    title = ' '.join((entry.findtext('a:title', default='', namespaces=ns)).split())
-    abstract = ' '.join((entry.findtext('a:summary', default='', namespaces=ns)).split())
+
+    title = ' '.join(
+        entry.findtext('a:title', default='', namespaces=ns).split()
+    )
+    abstract = ' '.join(
+        entry.findtext('a:summary', default='', namespaces=ns).split()
+    )
     paper_url = entry.findtext('a:id', default='', namespaces=ns)
-    authors = [x.findtext('a:name', default='', namespaces=ns) for x in entry.findall('a:author', ns)]
-    published = entry.findtext('a:published', default='', namespaces=ns)[:10]
-    if not (title and abstract and paper_url.startswith('http')):
-        raise RuntimeError('arXiv record was incomplete; refusing to publish unverified details.')
-    # Confirm the URL resolves before using it as the original source.
-    check = requests.get(paper_url, timeout=20, allow_redirects=True)
-    if check.status_code >= 400:
-        raise RuntimeError('Could not verify original research paper URL.')
-    prompt = f'''Summarize this real research paper for a learner interested in CSE, cybersecurity, web development and AI. Use only the metadata/abstract below; do not invent results or claims. Return JSON with keys: overview (2 sentences), key_findings (2 concise bullets), limitations (one cautious sentence; if not stated, say the abstract does not specify), practical_relevance (one sentence), field (one of CSE/Cybersecurity/Web Development/AI/Software Engineering), reading_level (beginner/intermediate/advanced). Clearly distinguish abstract claims from interpretation.\nTITLE: {title}\nABSTRACT: {abstract}'''
+    authors = [
+        x.findtext('a:name', default='', namespaces=ns)
+        for x in entry.findall('a:author', ns)
+    ]
+    published = entry.findtext(
+        'a:published', default='', namespaces=ns
+    )[:10]
+
+    if not (
+        title
+        and abstract
+        and paper_url.startswith('https://arxiv.org/abs/')
+    ):
+        raise RuntimeError(
+            'Incomplete or unexpected arXiv record; refusing to publish.'
+        )
+
+    # Check the original paper URL, but do not fail the entire workflow
+    # if the website is temporarily unreachable.
+    source_verified = False
+
+    try:
+        check = requests.get(
+            paper_url,
+            timeout=(10, 20),
+            allow_redirects=True,
+            headers={'User-Agent': 'DailyAIStudyAgent/1.0'}
+        )
+        source_verified = check.status_code < 400
+    except requests.RequestException:
+        source_verified = False
+
+    prompt = f'''Summarize this real research paper for a learner interested
+in CSE, cybersecurity, web development and AI. Use only the metadata and
+abstract below. Do not invent results or claims. Return JSON with keys:
+overview (2 sentences), key_findings (2 concise bullets), limitations
+(one cautious sentence; if not stated, say the abstract does not specify),
+practical_relevance (one sentence), field (one of CSE/Cybersecurity/
+Web Development/AI/Software Engineering), reading_level
+(beginner/intermediate/advanced). Clearly distinguish abstract claims
+from interpretation.
+TITLE: {title}
+ABSTRACT: {abstract}'''
+
     summary = json_from(gemini(prompt, 0.2))
-    return {'title': title, 'authors': authors[:6], 'published': published, 'url': paper_url,
-            'abstract': abstract, 'summary': summary, 'source_verified': True}
+
+    return {
+        'title': title,
+        'authors': authors[:6],
+        'published': published,
+        'url': paper_url,
+        'abstract': abstract,
+        'summary': summary,
+        'source_verified': source_verified
+    }
+
 
 
 def main():
