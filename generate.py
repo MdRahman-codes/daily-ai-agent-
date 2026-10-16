@@ -68,7 +68,7 @@ def get_research_paper():
                     'Could not retrieve research papers from arXiv '
                     'after 3 attempts. Please try again later.'
                 )
-            time.sleep(2 ** (attempt + 1))
+            time.sleep(15 * (attempt + 1))
 
     root = ET.fromstring(response.text)
     ns = {'a': 'http://www.w3.org/2005/Atom'}
