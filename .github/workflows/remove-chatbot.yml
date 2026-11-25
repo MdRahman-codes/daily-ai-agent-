@@ -8,27 +8,37 @@ permissions:
 jobs:
   cleanup:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 4
     steps:
-      - name: Remove interactive commands; preserve daily messages
+      - name: Install Telegram transport
+        run: python -m pip install requests
+      - name: Clear old bot commands without affecting notifications
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           python - <<'PY'
-          import json,os,urllib.request
+          import os,time,requests
           token=os.environ.get('TELEGRAM_BOT_TOKEN','').strip()
           chat=os.environ.get('TELEGRAM_CHAT_ID','').strip()
-          if not token or not chat: raise RuntimeError('Missing Telegram notification secrets')
+          if not token or not chat: raise RuntimeError('Required Telegram secrets are missing')
           def call(method,data):
-              req=urllib.request.Request('https://api.telegram.org/bot'+token+'/'+method,data=json.dumps(data).encode(),headers={'Content-Type':'application/json'},method='POST')
-              try:
-                  with urllib.request.urlopen(req,timeout=25) as r: result=json.load(r)
-                  if result.get('ok') is not True: raise RuntimeError('Telegram rejected cleanup')
-              except Exception as exc:
-                  raise RuntimeError('Telegram command cleanup failed ('+type(exc).__name__+'); secrets hidden') from None
+              for attempt in range(3):
+                  try:
+                      r=requests.post('https://api.telegram.org/bot'+token+'/'+method,json=data,timeout=(10,25))
+                      payload=r.json()
+                      if r.ok and payload.get('ok') is True:
+                          print('Telegram '+method+' completed')
+                          return
+                      code=payload.get('error_code',r.status_code)
+                      print('Telegram '+method+' returned HTTP '+str(code)+'; no credentials shown')
+                      if code not in (429,500,502,503,504): break
+                  except (requests.RequestException,ValueError) as err:
+                      print('Telegram '+method+' transport issue ('+type(err).__name__+'); secret hidden')
+                  if attempt<2: time.sleep(2*(attempt+1))
+              raise RuntimeError('Telegram command cleanup failed: '+method)
           call('deleteMyCommands',{'scope':{'type':'chat','chat_id':chat}})
           call('setChatMenuButton',{'chat_id':chat,'menu_button':{'type':'default'}})
           call('deleteMyCommands',{'scope':{'type':'default'}})
-          print('Chatbot commands removed. Daily notifications preserved.')
+          print('Chatbot command menu removed; scheduled notifications unaffected.')
           PY
