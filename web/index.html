@@ -6,6 +6,20 @@
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
 :root{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color-scheme:light dark}body{margin:0;background:var(--tg-theme-bg-color,#f6f7fb);color:var(--tg-theme-text-color,#18202b)}main{max-width:760px;margin:auto;padding:18px 14px 44px}.top{display:flex;justify-content:space-between;align-items:center;gap:12px}.muted{color:var(--tg-theme-hint-color,#687386)}.card{background:var(--tg-theme-secondary-bg-color,#fff);border:1px solid #8883;border-radius:16px;padding:16px;margin:14px 0}.pill{font-size:12px;border-radius:999px;padding:5px 9px;background:#dbeafe;color:#1d4ed8}.words{line-height:2.05;font-size:17px}.word{cursor:pointer;border-bottom:1px dotted var(--tg-theme-link-color,#2674d9);padding:1px 0}.word:active{background:#b9d9ff;color:#111}.btn{border:0;border-radius:10px;padding:11px 14px;background:var(--tg-theme-button-color,#2674d9);color:var(--tg-theme-button-text-color,#fff);font-weight:650;cursor:pointer}.secondary{background:transparent;color:var(--tg-theme-link-color,#2674d9);border:1px solid #8886}.row{display:flex;gap:8px;flex-wrap:wrap}.hidden{display:none!important}#detail{position:sticky;bottom:8px;box-shadow:0 4px 24px #0002}.field{margin:10px 0}.field strong{display:block;margin-bottom:3px}.note{font-size:13px;line-height:1.5}.error{color:#c33}.idea-actions{margin-top:12px}a{color:var(--tg-theme-link-color,#2674d9);overflow-wrap:anywhere}
+
+#detail{display:none}.cost-highlight{padding:12px;border:1px solid #8885;border-radius:12px;margin:12px 0;font-weight:700}
+#vocabPopup{display:none;position:fixed;z-index:1001;width:min(370px,calc(100vw - 24px));max-height:65dvh;overflow-y:auto;background:var(--tg-theme-bg-color,#fff);color:var(--tg-theme-text-color,#151e2c);border:1px solid #8886;box-shadow:0 12px 40px #0005;border-radius:16px;padding:16px;overflow-wrap:anywhere}
+#vocabPopup.open{display:block}#vocabClose{float:right;background:transparent;border:1px solid #8885;border-radius:8px;padding:6px 10px;color:inherit}
+#adhuriFab{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom));z-index:999;width:62px;height:62px;border-radius:50%;border:2px solid #fff7;box-shadow:0 8px 30px #0005;background:linear-gradient(135deg,#7c3aed,#2563eb);color:#fff;font-size:26px;cursor:pointer}
+#adhuriPanel{display:none;position:fixed;z-index:1000;right:15px;bottom:calc(90px + env(safe-area-inset-bottom));width:min(400px,calc(100vw - 30px));height:min(580px,calc(100dvh - 120px));background:var(--tg-theme-bg-color,#fff);color:var(--tg-theme-text-color,#111);border:1px solid #8885;box-shadow:0 12px 40px #0005;border-radius:18px;overflow:hidden;flex-direction:column}
+#adhuriPanel.open{display:flex}#adhuriHeader{background:linear-gradient(120deg,#6d28d9,#2563eb);padding:14px;color:white;display:flex;justify-content:space-between;align-items:center}
+#adhuriHeader strong{font-size:20px}#adhuriClose{background:transparent;color:white;border:1px solid #fff7;border-radius:8px;padding:8px}
+#adhuriMessages{overflow-y:auto;flex:1;padding:14px;display:flex;gap:10px;flex-direction:column;overflow-wrap:anywhere}
+.chatBubble{max-width:90%;padding:12px;border-radius:14px;white-space:pre-wrap;line-height:1.5;font-size:14px}
+.chatBubble.assistant{background:var(--tg-theme-secondary-bg-color,#e7eaf5);align-self:flex-start}.chatBubble.user{background:#2563eb;color:white;align-self:flex-end}
+#adhuriForm{display:flex;gap:7px;padding:10px;border-top:1px solid #8885}#adhuriInput{flex:1;min-width:0;padding:12px;border-radius:9px;border:1px solid #8885;background:var(--tg-theme-secondary-bg-color,#fff);color:inherit;font:inherit}
+#adhuriStatus{margin:0;padding:0 12px 10px;font-size:12px}
+@media(max-width:480px){main{padding-bottom:98px}#adhuriPanel{width:100vw;right:0;bottom:0;height:88dvh;border-radius:19px 19px 0 0}#adhuriFab{right:14px}}
 </style></head>
 <body><main>
 <div class="top"><div><h1 style="margin:0;font-size:24px">Daily AI Briefing</h1><div class="muted" id="date">Loading today’s briefing…</div></div><span class="pill">07:00 · Daily</span></div>
@@ -17,6 +31,14 @@
 <section class="card" id="detail"><div class="top"><h2 style="margin:0" id="wordTitle">Word explanation</h2><button class="btn secondary" id="closeDetail">Close</button></div><div id="wordBody"><p class="muted">Tap a word above to begin.</p></div></section>
 <p class="note muted" id="verification"></p>
 </div></main>
+<div id="vocabPopup" role="dialog" aria-label="Vocabulary"><button id="vocabClose" type="button">✕</button><h3 id="vocabHead">Vocabulary</h3><div id="vocabContent">Loading…</div></div>
+<button id="adhuriFab" aria-label="Open Adhuri chatbot" aria-expanded="false" type="button">✦</button>
+<section id="adhuriPanel" role="dialog" aria-label="Adhuri AI Chat">
+<div id="adhuriHeader"><div><strong>✦ Adhuri</strong><div>Discuss today's briefing</div></div><button id="adhuriClose" type="button">✕</button></div>
+<div id="adhuriMessages" role="log" aria-live="polite"><div class="chatBubble assistant">Hi! I'm Adhuri. Ask about today's business, research paper or facts. বাংলাতেও প্রশ্ন করতে পারো।</div></div>
+<form id="adhuriForm"><input id="adhuriInput" aria-label="Ask Adhuri" maxlength="650" autocomplete="off" placeholder="Ask Adhuri…" required/><button id="adhuriSend" class="btn" type="submit">Send</button></form>
+<p id="adhuriStatus" class="muted">AI can make mistakes; verify important claims.</p>
+</section>
 <script src="./config.js"></script>
 <script>
 const $=id=>document.getElementById(id); const tg=window.Telegram?.WebApp; tg?.ready(); tg?.expand();
@@ -34,4 +56,63 @@ const wc=$('wordContent');wc.replaceChildren();[data.business_idea.title,data.bu
 async function explainWord(word,sentence){$('wordTitle').textContent=word;$('wordBody').replaceChildren(el('p','Checking meaning and grammar…'));$('detail').scrollIntoView({behavior:'smooth',block:'nearest'});const endpoint=window.DAILY_AGENT_CONFIG?.vocabularyApiUrl;if(!endpoint||endpoint.includes('PASTE_YOUR')){$('wordBody').replaceChildren(el('p','Vocabulary API is not configured yet. Complete the Cloudflare Worker setup in README.md.'));return}try{const r=await fetch(endpoint.replace(/\/$/,'')+'/explain',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({word,sentence})});const d=await r.json();if(!r.ok)throw new Error(d.error||'Request failed');$('wordBody').replaceChildren();addField($('wordBody'),'Meaning',d.meaning_bn);addField($('wordBody'),'Context in this sentence',d.context);addField($('wordBody'),'Daily-life example',d.daily_example);addField($('wordBody'),'Grammar structure',d.grammar);addField($('wordBody'),'Accuracy check',d.verification_status+(d.verification_note?' · '+d.verification_note:''));}catch(e){$('wordBody').replaceChildren(el('p','Could not load explanation: '+e.message));}}
 $('closeDetail').onclick=()=>$('wordBody').replaceChildren(el('p','Tap a word above to begin.'));
 fetch('./content.json?ts='+Date.now()).then(r=>{if(!r.ok)throw new Error('No daily briefing has been published yet.');return r.json()}).then(d=>{data=d;render()}).catch(e=>{$('loading').textContent=e.message+' The first scheduled run will publish the briefing.'});
+</script>
+<script>
+const vp=document.getElementById('vocabPopup'),vc=document.getElementById('vocabContent');
+let vocabTarget=null,vocabAbort=null;
+function positionVocabulary(target){
+ const r=target?.getBoundingClientRect();if(!r)return;
+ vp.classList.add('open');vp.style.visibility='hidden';
+ const w=vp.offsetWidth,hh=vp.offsetHeight,p=12;
+ const x=Math.max(p,Math.min(innerWidth-w-p,r.left+(r.width-w)/2));
+ const y=innerHeight-r.bottom>hh+20?r.bottom+8:Math.max(p,r.top-hh-8);
+ vp.style.left=x+'px';vp.style.top=Math.max(p,Math.min(innerHeight-hh-p,y))+'px';vp.style.visibility='visible';
+}
+function closeVocabulary(){vocabAbort?.abort();vp.classList.remove('open');vocabTarget=null}
+document.getElementById('vocabClose').onclick=closeVocabulary;
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeVocabulary();toggleChat(false)}});
+document.addEventListener('pointerdown',e=>{if(vp.classList.contains('open')&&!vp.contains(e.target)&&!e.target.closest('.word'))closeVocabulary()});
+window.addEventListener('resize',()=>{if(vp.classList.contains('open'))positionVocabulary(vocabTarget)});
+async function explainWord(word,sentence){
+ vocabAbort?.abort();vocabAbort=new AbortController();
+ vocabTarget=document.activeElement?.classList?.contains('word')?document.activeElement:document.querySelector('#wordContent .word');
+ document.getElementById('vocabHead').textContent=word;
+ vc.replaceChildren(el('p','Checking Bangla meaning, grammatical function and example…'));positionVocabulary(vocabTarget);
+ const url=window.DAILY_AGENT_CONFIG?.vocabularyApiUrl;
+ if(!url||url.includes('PASTE_YOUR')){vc.replaceChildren(el('p','Vocabulary AI backend has not been deployed.'));positionVocabulary(vocabTarget);return}
+ try{
+  const r=await fetch(url.replace(/\/$/,'')+'/explain',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({word,sentence}),signal:vocabAbort.signal});
+  const d=await r.json();if(!r.ok)throw Error(d.error||'Service unavailable');
+  vc.replaceChildren();addField(vc,'বাংলা অর্থ',d.meaning_bn);addField(vc,'Grammatical function',d.grammar);addField(vc,'Meaning in context',d.context);addField(vc,'Real-life example',d.daily_example);positionVocabulary(vocabTarget);
+ }catch(e){if(e.name!=='AbortError'){vc.replaceChildren(el('p','Explanation unavailable: '+e.message));positionVocabulary(vocabTarget)}}
+}
+const panel=document.getElementById('adhuriPanel'),fab=document.getElementById('adhuriFab'),messages=document.getElementById('adhuriMessages'),input=document.getElementById('adhuriInput'),send=document.getElementById('adhuriSend'),status=document.getElementById('adhuriStatus');
+let history=[],busy=false;
+function toggleChat(open){panel.classList.toggle('open',open);fab.setAttribute('aria-expanded',String(open));if(open)input.focus()}
+fab.onclick=()=>toggleChat(!panel.classList.contains('open'));
+document.getElementById('adhuriClose').onclick=()=>toggleChat(false);
+function bubble(text,role){const n=el('div',String(text));n.className='chatBubble '+role;messages.append(n);messages.scrollTop=messages.scrollHeight}
+document.getElementById('adhuriForm').onsubmit=async e=>{
+ e.preventDefault();if(busy)return;const message=input.value.trim();if(!message)return;input.value='';bubble(message,'user');busy=true;send.disabled=true;status.textContent='Adhuri is thinking…';
+ const url=window.DAILY_AGENT_CONFIG?.vocabularyApiUrl;
+ if(!url||url.includes('PASTE_YOUR')){bubble('My secure AI backend is not connected yet.','assistant');busy=false;send.disabled=false;status.textContent='Backend setup required';return}
+ try{
+  const context=data?{date:data.date,business_idea:data.business_idea,research_paper:{title:data.research_paper?.title,summary:data.research_paper?.summary},facts:data.facts}:null;
+  const r=await fetch(url.replace(/\/$/,'')+'/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message,history:history.slice(-6),briefing:context})});
+  const d=await r.json();if(!r.ok)throw Error(d.error||'Service unavailable');
+  bubble(d.reply||'Sorry, no answer available.','assistant');history.push({role:'user',text:message},{role:'assistant',text:d.reply||''});history=history.slice(-8);status.textContent='AI may be inaccurate; verify important details.';
+ }catch(e){bubble('I cannot respond right now: '+e.message,'assistant');status.textContent='Please try again later.'}
+ finally{busy=false;send.disabled=false}
+};
+const oldRender=render;
+render=function(){
+ oldRender();const b=data.business_idea||{};
+ const taka=n=>'৳'+Number(n).toLocaleString('en-BD');
+ if(Number.isFinite(b.startup_cost_bdt_min)&&Number.isFinite(b.startup_cost_bdt_max)){const n=el('div','Estimated startup budget: '+taka(b.startup_cost_bdt_min)+' – '+taka(b.startup_cost_bdt_max));n.className='cost-highlight';document.getElementById('businessOverview').after(n)}
+ document.getElementById('interested').onclick=()=>{
+  const box=document.getElementById('fullPlan');box.classList.remove('hidden');box.replaceChildren();
+  for(const [name,key] of [['Problem','problem'],['Why demand may exist','demand_reason'],['First step','first_step'],['Low-cost pilot','validation_plan'],['Risks','risks'],['Confidence','confidence_note']])addField(box,name,b[key]);
+  if(Array.isArray(b.startup_cost_breakdown)){box.append(el('h4','Estimated initial costs (BDT)'));for(const item of b.startup_cost_breakdown)if(item&&Number.isFinite(item.estimated_bdt))box.append(el('p',String(item.item)+': '+taka(item.estimated_bdt)));box.append(el('p',b.startup_cost_disclaimer||'Estimates only; verify local quotations.'))}
+ };
+};
 </script></body></html>
