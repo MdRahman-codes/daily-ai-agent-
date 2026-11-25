@@ -91,3 +91,5 @@ jobs:
           else
             echo 'Cloudflare deploy credentials: MISSING'
           fi
+
+# One-time user-requested live-format resend: 2026-11-26 (Bangladesh)
