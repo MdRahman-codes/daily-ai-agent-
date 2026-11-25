@@ -45,7 +45,7 @@ const $=id=>document.getElementById(id); const tg=window.Telegram?.WebApp; tg?.r
 let data;
 function el(tag,text){const n=document.createElement(tag);n.textContent=text;return n}
 function addField(parent,label,value){const d=el('div','');d.className='field';d.append(el('strong',label),el('div',value||'Not available'));parent.append(d)}
-function clickableText(text, container){const re=/[A-Za-z]+(?:['’-][A-Za-z]+)*/g;let last=0,m;while((m=re.exec(text))){if(m.index>last)container.append(document.createTextNode(text.slice(last,m.index)));const b=el('span',m[0]);b.className='word';b.tabIndex=0;b.setAttribute('role','button');b.addEventListener('click',()=>explainWord(m[0],text));b.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();explainWord(m[0],text)}});container.append(b);last=re.lastIndex}if(last<text.length)container.append(document.createTextNode(text.slice(last)))}
+function clickableText(text, container){const re=/[A-Za-z]+(?:['’-][A-Za-z]+)*/g;let last=0,m;while((m=re.exec(text))){if(m.index>last)container.append(document.createTextNode(text.slice(last,m.index)));const b=el('span',m[0]);b.className='word';b.tabIndex=0;b.setAttribute('role','button');b.addEventListener('click',()=>explainWord(m[0],text,b));b.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();explainWord(m[0],text,b)}});container.append(b);last=re.lastIndex}if(last<text.length)container.append(document.createTextNode(text.slice(last)))}
 function render(){ $('loading').classList.add('hidden');$('app').classList.remove('hidden');$('date').textContent=data.date;
 $('businessTitle').textContent=data.business_idea.title;$('businessOverview').textContent=data.business_idea.overview;$('businessMeta').textContent='Target customer: '+(data.business_idea.target_customer||'Not specified')+' · Revenue: '+(data.business_idea.revenue_model||'Not specified');
 $('interested').onclick=()=>{const box=$('fullPlan');box.classList.remove('hidden');box.replaceChildren();const b=data.business_idea;addField(box,'Problem',b.problem);addField(box,'First step',b.first_step);addField(box,'Risks',b.risks);addField(box,'Confidence note',b.confidence_note);};
@@ -73,9 +73,9 @@ document.getElementById('vocabClose').onclick=closeVocabulary;
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeVocabulary();toggleChat(false)}});
 document.addEventListener('pointerdown',e=>{if(vp.classList.contains('open')&&!vp.contains(e.target)&&!e.target.closest('.word'))closeVocabulary()});
 window.addEventListener('resize',()=>{if(vp.classList.contains('open'))positionVocabulary(vocabTarget)});
-async function explainWord(word,sentence){
+async function explainWord(word,sentence,target){
  vocabAbort?.abort();vocabAbort=new AbortController();
- vocabTarget=document.activeElement?.classList?.contains('word')?document.activeElement:document.querySelector('#wordContent .word');
+ vocabTarget=target||document.querySelector('#wordContent .word');
  document.getElementById('vocabHead').textContent=word;
  vc.replaceChildren(el('p','Checking Bangla meaning, grammatical function and example…'));positionVocabulary(vocabTarget);
  const url=window.DAILY_AGENT_CONFIG?.vocabularyApiUrl;
