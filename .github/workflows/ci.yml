@@ -2,6 +2,9 @@ name: Agent code checks
 on:
   pull_request:
     branches: [main]
+  push:
+    branches: [main]
+    paths: ['worker.js', 'wrangler.toml', 'tests/worker.test.mjs', '.github/workflows/ci.yml']
   workflow_dispatch:
 permissions:
   contents: read
