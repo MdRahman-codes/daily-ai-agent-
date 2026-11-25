@@ -128,6 +128,29 @@ class GenerateTests(unittest.TestCase):
         self.assertFalse(generate.is_computing_title("Organic farming profitability in rural villages"))
         self.assertFalse(generate.is_computing_title("A clinical trial of a new medicine"))
 
+    def test_roi_is_derived_from_revenue_and_expenses(self):
+        idea = {"startup_cost_breakdown": [
+            {"item": "Stock", "estimated_bdt": 30000},
+            {"item": "Equipment", "estimated_bdt": 20000},
+            {"item": "Rent", "estimated_bdt": 10000},
+        ], "illustrative_monthly_revenue_bdt": 40000,
+           "illustrative_monthly_expenses_bdt": 34000,
+           "illustrative_monthly_roi_percent": 95.0}
+        generate.calculate_startup_costs(idea)
+        self.assertEqual(idea["illustrative_monthly_net_profit_bdt"], 6000)
+        self.assertEqual(idea["illustrative_monthly_roi_percent"], 10.0)
+        self.assertIsNone(idea["success_probability"])
+
+    def test_roi_allows_negative_returns(self):
+        idea = {"startup_cost_breakdown": [
+            {"item": "Stock", "estimated_bdt": 30000},
+            {"item": "Tools", "estimated_bdt": 10000},
+            {"item": "Rent", "estimated_bdt": 10000},
+        ], "illustrative_monthly_revenue_bdt": 25000,
+           "illustrative_monthly_expenses_bdt": 30000}
+        generate.calculate_startup_costs(idea)
+        self.assertEqual(idea["illustrative_monthly_roi_percent"], -10.0)
+
     def test_budget_is_computed_not_model_claimed(self):
         idea = {"startup_cost_breakdown": [
             {"item": "Equipment", "estimated_bdt": 20000},
