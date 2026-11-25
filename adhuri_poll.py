@@ -10,6 +10,7 @@ from generate import gemini_json
 TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
 OWNER = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
 WORD = re.compile(r"^[A-Za-z][A-Za-z'-]{0,39}$")
+BANGLA = re.compile(r"[\u0980-\u09ff]")
 
 
 def api(method, **payload):
@@ -36,6 +37,10 @@ def word_reply(word, data):
         not isinstance(data.get(k), str) or not data[k].strip() for k in keys
     ):
         raise RuntimeError("Vocabulary model response incomplete")
+    if any(not BANGLA.search(data[k]) for k in (
+            "meaning_bn", "grammatical_function_bn",
+            "real_life_use_bn", "sentence_context_bn")):
+        raise RuntimeError("Vocabulary model did not explain in Bangla")
     return "📘 <b>" + html.escape(word) + "</b>\n\n" + "\n\n".join(
         f"{n}. <b>{label}:</b> {html.escape(data[key].strip()[:700])}"
         for n, (key, label) in enumerate(zip(keys, labels), 1)
@@ -93,8 +98,10 @@ Return ONLY valid JSON with the string key reply_bn (max 2300 chars).
 BRIEFING: {context()}
 QUESTION: {json.dumps(text, ensure_ascii=False)}"""
     result = gemini_json(prompt)
-    if not isinstance(result.get("reply_bn"), str) or not result["reply_bn"].strip():
-        raise RuntimeError("Gemini returned no Bengali reply")
+    if (not isinstance(result.get("reply_bn"), str)
+            or not result["reply_bn"].strip()
+            or not BANGLA.search(result["reply_bn"])):
+        raise RuntimeError("Gemini did not return a Bangla reply")
     return html.escape(result["reply_bn"].strip()[:2600])
 
 

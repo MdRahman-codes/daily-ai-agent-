@@ -31,6 +31,12 @@ class BotTests(unittest.TestCase):
         self.assertIn("সম্ভব", bot.answer("How do I plan a business?"))
         self.assertIn("ALWAYS IN BANGLA", gen.call_args.args[0])
 
+    @patch("adhuri_poll.context", return_value="{}")
+    @patch("adhuri_poll.gemini_json", return_value={"reply_bn": "English only."})
+    def test_non_bangla_answer_is_refused(self, gen, ctx):
+        with self.assertRaisesRegex(RuntimeError, "Bangla"):
+            bot.answer("How do I plan a business?")
+
     @patch("adhuri_poll.api")
     def test_unauthorized_chat_ignored(self, req):
         with patch.object(bot, "OWNER", "7"):
