@@ -23,6 +23,17 @@ class NotifyTests(unittest.TestCase):
         sleep.assert_called_once_with(1)
 
     @patch('notify.requests.post')
+    def test_daily_sms_has_no_inline_button(self, post):
+        from unittest.mock import Mock
+        response = Mock(ok=True, status_code=200)
+        response.json.return_value = {"ok": True}
+        post.return_value = response
+        notify.send_message('https://api.telegram.org/botFAKE/sendMessage', '1', 'demo')
+        payload = post.call_args.kwargs['json']
+        self.assertNotIn('reply_markup', payload)
+        self.assertEqual(payload['text'], 'demo')
+
+    @patch('notify.requests.post')
     def test_do_not_truncate_html(self, post):
         with self.assertRaisesRegex(RuntimeError, "too long"):
             notify.send_message('https://api.telegram.org/botFAKE/sendMessage', '1', '<b>' + 'x' * 4000 + '</b>', {})

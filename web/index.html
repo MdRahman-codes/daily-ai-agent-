@@ -1,118 +1,132 @@
 <!doctype html>
-<html lang="en">
+<html lang="bn">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="color-scheme" content="light dark"><title>Daily AI Briefing</title>
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
-<style>
-:root{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color-scheme:light dark}body{margin:0;background:var(--tg-theme-bg-color,#f6f7fb);color:var(--tg-theme-text-color,#18202b)}main{max-width:760px;margin:auto;padding:18px 14px 44px}.top{display:flex;justify-content:space-between;align-items:center;gap:12px}.muted{color:var(--tg-theme-hint-color,#687386)}.card{background:var(--tg-theme-secondary-bg-color,#fff);border:1px solid #8883;border-radius:16px;padding:16px;margin:14px 0}.pill{font-size:12px;border-radius:999px;padding:5px 9px;background:#dbeafe;color:#1d4ed8}.words{line-height:2.05;font-size:17px}.word{cursor:pointer;border-bottom:1px dotted var(--tg-theme-link-color,#2674d9);padding:1px 0}.word:active{background:#b9d9ff;color:#111}.btn{border:0;border-radius:10px;padding:11px 14px;background:var(--tg-theme-button-color,#2674d9);color:var(--tg-theme-button-text-color,#fff);font-weight:650;cursor:pointer}.secondary{background:transparent;color:var(--tg-theme-link-color,#2674d9);border:1px solid #8886}.row{display:flex;gap:8px;flex-wrap:wrap}.hidden{display:none!important}#detail{position:sticky;bottom:8px;box-shadow:0 4px 24px #0002}.field{margin:10px 0}.field strong{display:block;margin-bottom:3px}.note{font-size:13px;line-height:1.5}.error{color:#c33}.idea-actions{margin-top:12px}a{color:var(--tg-theme-link-color,#2674d9);overflow-wrap:anywhere}
-
-#detail{display:none}.cost-highlight{padding:12px;border:1px solid #8885;border-radius:12px;margin:12px 0;font-weight:700}
-#vocabPopup{display:none;position:fixed;z-index:1001;width:min(370px,calc(100vw - 24px));max-height:65dvh;overflow-y:auto;background:var(--tg-theme-bg-color,#fff);color:var(--tg-theme-text-color,#151e2c);border:1px solid #8886;box-shadow:0 12px 40px #0005;border-radius:16px;padding:16px;overflow-wrap:anywhere}
-#vocabPopup.open{display:block}#vocabClose{float:right;background:transparent;border:1px solid #8885;border-radius:8px;padding:6px 10px;color:inherit}
-#adhuriFab{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom));z-index:999;width:62px;height:62px;border-radius:50%;border:2px solid #fff7;box-shadow:0 8px 30px #0005;background:linear-gradient(135deg,#7c3aed,#2563eb);color:#fff;font-size:26px;cursor:pointer}
-#adhuriPanel{display:none;position:fixed;z-index:1000;right:15px;bottom:calc(90px + env(safe-area-inset-bottom));width:min(400px,calc(100vw - 30px));height:min(580px,calc(100dvh - 120px));background:var(--tg-theme-bg-color,#fff);color:var(--tg-theme-text-color,#111);border:1px solid #8885;box-shadow:0 12px 40px #0005;border-radius:18px;overflow:hidden;flex-direction:column}
-#adhuriPanel.open{display:flex}#adhuriHeader{background:linear-gradient(120deg,#6d28d9,#2563eb);padding:14px;color:white;display:flex;justify-content:space-between;align-items:center}
-#adhuriHeader strong{font-size:20px}#adhuriClose{background:transparent;color:white;border:1px solid #fff7;border-radius:8px;padding:8px}
-#adhuriMessages{overflow-y:auto;flex:1;padding:14px;display:flex;gap:10px;flex-direction:column;overflow-wrap:anywhere}
-.chatBubble{max-width:90%;padding:12px;border-radius:14px;white-space:pre-wrap;line-height:1.5;font-size:14px}
-.chatBubble.assistant{background:var(--tg-theme-secondary-bg-color,#e7eaf5);align-self:flex-start}.chatBubble.user{background:#2563eb;color:white;align-self:flex-end}
-#adhuriForm{display:flex;gap:7px;padding:10px;border-top:1px solid #8885}#adhuriInput{flex:1;min-width:0;padding:12px;border-radius:9px;border:1px solid #8885;background:var(--tg-theme-secondary-bg-color,#fff);color:inherit;font:inherit}
-#adhuriStatus{margin:0;padding:0 12px 10px;font-size:12px}
-@media(max-width:480px){main{padding-bottom:98px}#adhuriPanel{width:100vw;right:0;bottom:0;height:88dvh;border-radius:19px 19px 0 0}#adhuriFab{right:14px}}
-</style></head>
-<body><main>
-<div class="top"><div><h1 style="margin:0;font-size:24px">Daily AI Briefing</h1><div class="muted" id="date">Loading today’s briefing…</div></div><span class="pill">07:00 · Daily</span></div>
-<div id="loading" class="card">Loading your daily content…</div><div id="app" class="hidden">
-<section class="card"><h2>💡 Business idea</h2><h3 id="businessTitle"></h3><p id="businessOverview"></p><div class="muted" id="businessMeta"></div><div class="row idea-actions"><button class="btn" id="interested">Interested · show full plan</button></div><div id="fullPlan" class="hidden"></div></section>
-<section class="card"><h2>🔬 Research paper</h2><h3 id="paperTitle"></h3><p id="paperOverview"></p><div id="paperFindings"></div><p class="note" id="paperMeta"></p><a id="paperLink" target="_blank" rel="noopener">Open original paper</a></section>
-<section class="card"><h2>✨ Two interesting facts</h2><div id="facts"></div></section>
-<section class="card"><h2>📚 Tap any word</h2><p class="muted note">Tap any word in the English content below to see its Bangla meaning, sentence-specific context, a daily-life example, and grammar structure. Explanations are checked where possible and uncertainty is labelled.</p><div id="wordContent" class="words"></div></section>
-<section class="card" id="detail"><div class="top"><h2 style="margin:0" id="wordTitle">Word explanation</h2><button class="btn secondary" id="closeDetail">Close</button></div><div id="wordBody"><p class="muted">Tap a word above to begin.</p></div></section>
-<p class="note muted" id="verification"></p>
-</div></main>
-<div id="vocabPopup" role="dialog" aria-label="Vocabulary"><button id="vocabClose" type="button">✕</button><h3 id="vocabHead">Vocabulary</h3><div id="vocabContent">Loading…</div></div>
-<button id="adhuriFab" aria-label="Open Adhuri chatbot" aria-expanded="false" type="button">✦</button>
-<section id="adhuriPanel" role="dialog" aria-label="Adhuri AI Chat">
-<div id="adhuriHeader"><div><strong>✦ Adhuri</strong><div>Discuss today's briefing</div></div><button id="adhuriClose" type="button">✕</button></div>
-<div id="adhuriMessages" role="log" aria-live="polite"><div class="chatBubble assistant">Hi! I'm Adhuri. Ask about today's business, research paper or facts. বাংলাতেও প্রশ্ন করতে পারো।</div></div>
-<form id="adhuriForm"><input id="adhuriInput" aria-label="Ask Adhuri" maxlength="650" autocomplete="off" placeholder="Ask Adhuri…" required/><button id="adhuriSend" class="btn" type="submit">Send</button></form>
-<p id="adhuriStatus" class="muted">AI can make mistakes; verify important claims.</p>
-</section>
-<script src="./config.js"></script>
-<script>
-const $=id=>document.getElementById(id); const tg=window.Telegram?.WebApp; tg?.ready(); tg?.expand();
-let data;
-function el(tag,text){const n=document.createElement(tag);n.textContent=text;return n}
-function addField(parent,label,value){const d=el('div','');d.className='field';d.append(el('strong',label),el('div',value||'Not available'));parent.append(d)}
-function clickableText(text, container){const re=/[A-Za-z]+(?:['’-][A-Za-z]+)*/g;let last=0,m;while((m=re.exec(text))){if(m.index>last)container.append(document.createTextNode(text.slice(last,m.index)));const b=el('span',m[0]);b.className='word';b.tabIndex=0;b.setAttribute('role','button');b.addEventListener('click',()=>explainWord(m[0],text,b));b.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();explainWord(m[0],text,b)}});container.append(b);last=re.lastIndex}if(last<text.length)container.append(document.createTextNode(text.slice(last)))}
-function render(){ $('loading').classList.add('hidden');$('app').classList.remove('hidden');$('date').textContent=data.date;
-$('businessTitle').textContent=data.business_idea.title;$('businessOverview').textContent=data.business_idea.overview;$('businessMeta').textContent='Target customer: '+(data.business_idea.target_customer||'Not specified')+' · Revenue: '+(data.business_idea.revenue_model||'Not specified');
-$('interested').onclick=()=>{const box=$('fullPlan');box.classList.remove('hidden');box.replaceChildren();const b=data.business_idea;addField(box,'Problem',b.problem);addField(box,'First step',b.first_step);addField(box,'Risks',b.risks);addField(box,'Confidence note',b.confidence_note);};
-const p=data.research_paper;$('paperTitle').textContent=p.title;$('paperOverview').textContent=p.summary.overview;$('paperFindings').replaceChildren();(p.summary.key_findings||[]).forEach(x=>$('paperFindings').append(el('p','• '+x)));$('paperMeta').textContent='Field: '+p.summary.field+' · Published: '+p.published+' · Metadata source: '+(p.metadata_source||'research index')+' · Link reachability is not proof of claims';$('paperLink').href=p.url;
-$('facts').replaceChildren();data.facts.forEach((f,i)=>{const d=el('div','');d.className='field';d.append(el('strong',(i===0?'Daily life':'Any topic')+': '+f.claim),el('p',f.explanation));if(f.source_url){const a=el('a','Check source');a.href=f.source_url;a.target='_blank';a.rel='noopener';d.append(a)}const review=data.fact_review?.[i];if(review)d.append(el('p','Review status: '+review.status+' — '+review.reason));$('facts').append(d)});
-const wc=$('wordContent');wc.replaceChildren();[data.business_idea.title,data.business_idea.overview,p.title,p.summary.overview,...(data.facts||[]).flatMap(f=>[f.claim,f.explanation])].forEach((s,i)=>{if(i)wc.append(document.createTextNode(' '));clickableText(s,wc)});$('verification').textContent=data.verification_note||'AI explanations may still contain errors. Open sources to verify important claims.';
-}
-async function explainWord(word,sentence){$('wordTitle').textContent=word;$('wordBody').replaceChildren(el('p','Checking meaning and grammar…'));$('detail').scrollIntoView({behavior:'smooth',block:'nearest'});const endpoint=window.DAILY_AGENT_CONFIG?.vocabularyApiUrl;if(!endpoint||endpoint.includes('PASTE_YOUR')){$('wordBody').replaceChildren(el('p','Vocabulary API is not configured yet. Complete the Cloudflare Worker setup in README.md.'));return}try{const r=await fetch(endpoint.replace(/\/$/,'')+'/explain',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({word,sentence})});const d=await r.json();if(!r.ok)throw new Error(d.error||'Request failed');$('wordBody').replaceChildren();addField($('wordBody'),'Meaning',d.meaning_bn);addField($('wordBody'),'Context in this sentence',d.context);addField($('wordBody'),'Daily-life example',d.daily_example);addField($('wordBody'),'Grammar structure',d.grammar);addField($('wordBody'),'Accuracy check',d.verification_status+(d.verification_note?' · '+d.verification_note:''));}catch(e){$('wordBody').replaceChildren(el('p','Could not load explanation: '+e.message));}}
-$('closeDetail').onclick=()=>$('wordBody').replaceChildren(el('p','Tap a word above to begin.'));
-fetch('./content.json?ts='+Date.now()).then(r=>{if(!r.ok)throw new Error('No daily briefing has been published yet.');return r.json()}).then(d=>{data=d;render()}).catch(e=>{$('loading').textContent=e.message+' The first scheduled run will publish the briefing.'});
-</script>
-<script>
-const vp=document.getElementById('vocabPopup'),vc=document.getElementById('vocabContent');
-let vocabTarget=null,vocabAbort=null;
-function positionVocabulary(target){
- const r=target?.getBoundingClientRect();if(!r)return;
- vp.classList.add('open');vp.style.visibility='hidden';
- const w=vp.offsetWidth,hh=vp.offsetHeight,p=12;
- const x=Math.max(p,Math.min(innerWidth-w-p,r.left+(r.width-w)/2));
- const y=innerHeight-r.bottom>hh+20?r.bottom+8:Math.max(p,r.top-hh-8);
- vp.style.left=x+'px';vp.style.top=Math.max(p,Math.min(innerHeight-hh-p,y))+'px';vp.style.visibility='visible';
-}
-function closeVocabulary(){vocabAbort?.abort();vp.classList.remove('open');vocabTarget=null}
-document.getElementById('vocabClose').onclick=closeVocabulary;
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeVocabulary();toggleChat(false)}});
-document.addEventListener('pointerdown',e=>{if(vp.classList.contains('open')&&!vp.contains(e.target)&&!e.target.closest('.word'))closeVocabulary()});
-window.addEventListener('resize',()=>{if(vp.classList.contains('open'))positionVocabulary(vocabTarget)});
-async function explainWord(word,sentence,target){
- vocabAbort?.abort();vocabAbort=new AbortController();
- vocabTarget=target||document.querySelector('#wordContent .word');
- document.getElementById('vocabHead').textContent=word;
- vc.replaceChildren(el('p','Checking Bangla meaning, grammatical function and example…'));positionVocabulary(vocabTarget);
- const url=window.DAILY_AGENT_CONFIG?.vocabularyApiUrl;
- if(!url||url.includes('PASTE_YOUR')){vc.replaceChildren(el('p','Vocabulary AI backend has not been deployed.'));positionVocabulary(vocabTarget);return}
- try{
-  const r=await fetch(url.replace(/\/$/,'')+'/explain',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({word,sentence}),signal:vocabAbort.signal});
-  const d=await r.json();if(!r.ok)throw Error(d.error||'Service unavailable');
-  vc.replaceChildren();addField(vc,'বাংলা অর্থ',d.meaning_bn);addField(vc,'Grammatical function',d.grammar);addField(vc,'Meaning in context',d.context);addField(vc,'Real-life example',d.daily_example);positionVocabulary(vocabTarget);
- }catch(e){if(e.name!=='AbortError'){vc.replaceChildren(el('p','Explanation unavailable: '+e.message));positionVocabulary(vocabTarget)}}
-}
-const panel=document.getElementById('adhuriPanel'),fab=document.getElementById('adhuriFab'),messages=document.getElementById('adhuriMessages'),input=document.getElementById('adhuriInput'),send=document.getElementById('adhuriSend'),status=document.getElementById('adhuriStatus');
-let history=[],busy=false;
-function toggleChat(open){panel.classList.toggle('open',open);fab.setAttribute('aria-expanded',String(open));if(open)input.focus()}
-fab.onclick=()=>toggleChat(!panel.classList.contains('open'));
-document.getElementById('adhuriClose').onclick=()=>toggleChat(false);
-function bubble(text,role){const n=el('div',String(text));n.className='chatBubble '+role;messages.append(n);messages.scrollTop=messages.scrollHeight}
-document.getElementById('adhuriForm').onsubmit=async e=>{
- e.preventDefault();if(busy)return;const message=input.value.trim();if(!message)return;input.value='';bubble(message,'user');busy=true;send.disabled=true;status.textContent='Adhuri is thinking…';
- const url=window.DAILY_AGENT_CONFIG?.vocabularyApiUrl;
- if(!url||url.includes('PASTE_YOUR')){bubble('My secure AI backend is not connected yet.','assistant');busy=false;send.disabled=false;status.textContent='Backend setup required';return}
- try{
-  const context=data?{date:data.date,business_idea:data.business_idea,research_paper:{title:data.research_paper?.title,summary:data.research_paper?.summary},facts:data.facts}:null;
-  const r=await fetch(url.replace(/\/$/,'')+'/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message,history:history.slice(-6),briefing:context})});
-  const d=await r.json();if(!r.ok)throw Error(d.error||'Service unavailable');
-  bubble(d.reply||'Sorry, no answer available.','assistant');history.push({role:'user',text:message},{role:'assistant',text:d.reply||''});history=history.slice(-8);status.textContent='AI may be inaccurate; verify important details.';
- }catch(e){bubble('I cannot respond right now: '+e.message,'assistant');status.textContent='Please try again later.'}
- finally{busy=false;send.disabled=false}
-};
-const oldRender=render;
-render=function(){
- oldRender();const b=data.business_idea||{};
- const taka=n=>'৳'+Number(n).toLocaleString('en-BD');
- if(Number.isFinite(b.startup_cost_bdt_min)&&Number.isFinite(b.startup_cost_bdt_max)){const n=el('div','Estimated startup budget: '+taka(b.startup_cost_bdt_min)+' – '+taka(b.startup_cost_bdt_max));n.className='cost-highlight';document.getElementById('businessOverview').after(n)}
- document.getElementById('interested').onclick=()=>{
-  const box=document.getElementById('fullPlan');box.classList.remove('hidden');box.replaceChildren();
-  for(const [name,key] of [['Problem','problem'],['Why demand may exist','demand_reason'],['First step','first_step'],['Low-cost pilot','validation_plan'],['Risks','risks'],['Confidence','confidence_note']])addField(box,name,b[key]);
-  if(Array.isArray(b.startup_cost_breakdown)){box.append(el('h4','Estimated initial costs (BDT)'));for(const item of b.startup_cost_breakdown)if(item&&Number.isFinite(item.estimated_bdt))box.append(el('p',String(item.item)+': '+taka(item.estimated_bdt)));box.append(el('p',b.startup_cost_disclaimer||'Estimates only; verify local quotations.'))}
- };
-};
-</script></body></html>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <meta name="color-scheme" content="light dark"/>
+  <title>Daily AI Agent — বাংলা Briefing</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    :root{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color-scheme:light dark}
+    *{box-sizing:border-box}
+    body{margin:0;min-height:100dvh;background:var(--tg-theme-bg-color,#f6f7fb);color:var(--tg-theme-text-color,#18202b)}
+    main{max-width:780px;margin:0 auto;padding:16px 13px 110px}
+    header{display:flex;justify-content:space-between;align-items:center;gap:14px;margin:6px 0 22px}
+    h1{font-size:23px;margin:0 0 4px}h2{font-size:19px;margin:0 0 12px}h3{font-size:17px}
+    .muted{color:var(--tg-theme-hint-color,#657183)}
+    .card{background:var(--tg-theme-secondary-bg-color,#fff);border:1px solid #8883;border-radius:17px;padding:17px;margin:15px 0;box-shadow:0 2px 8px #0000000a}
+    .badge{border-radius:999px;padding:5px 10px;background:#dfddff;color:#39209d;font-size:12px;white-space:nowrap}
+    .highlight{font-weight:750;padding:12px;margin:14px 0;border-radius:12px;border:1px solid #8884}
+    .field{margin:12px 0;line-height:1.5}.field strong{display:block;margin-bottom:4px}
+    .btn{font:inherit;font-weight:650;cursor:pointer;padding:10px 15px;border:0;border-radius:11px;color:var(--tg-theme-button-text-color,#fff);background:var(--tg-theme-button-color,#2674d9)}
+    .hidden{display:none!important}a{color:var(--tg-theme-link-color,#2674d9);overflow-wrap:anywhere}
+    .note{font-size:13px;line-height:1.6}.fact{padding-bottom:10px;border-bottom:1px solid #8883}
+    #adhuriFab{position:fixed;right:17px;bottom:calc(18px + env(safe-area-inset-bottom));z-index:100;width:64px;height:64px;border-radius:50%;font-size:29px;border:2px solid #fff8;background:linear-gradient(125deg,#7c3aed,#2563eb);color:#fff;box-shadow:0 10px 26px #0005;cursor:pointer}
+    #adhuriGuide{position:fixed;right:13px;bottom:calc(93px + env(safe-area-inset-bottom));width:min(360px,calc(100vw - 26px));z-index:100;background:var(--tg-theme-bg-color,#fff);color:inherit;border-radius:18px;padding:18px;border:1px solid #8886;box-shadow:0 14px 35px #0006}
+    #adhuriGuide h2{margin-right:35px}
+    #guideClose{float:right;border:1px solid #8886;border-radius:8px;padding:6px 10px;background:transparent;color:inherit;cursor:pointer}
+    #adhuriGuide p{line-height:1.65}#backToTelegram{width:100%}
+    @media(max-width:480px){main{padding:12px 12px 100px}.card{padding:14px}header{align-items:start}.badge{font-size:11px}#adhuriFab{right:13px}}
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div><h1>Daily AI Briefing</h1><div class="muted" id="date">Loading briefing…</div></div>
+      <span class="badge">Bangladesh · Daily</span>
+    </header>
+    <div id="loading" class="card">Briefing লোড হচ্ছে…</div>
+    <div id="app" class="hidden">
+      <section class="card">
+        <h2>💡 Business Idea</h2>
+        <h3 id="businessTitle"></h3>
+        <p id="businessOverview"></p>
+        <div id="businessMeta" class="muted"></div>
+        <div class="highlight" id="startupCost"></div>
+        <div class="highlight" id="monthlyRoi"></div>
+        <p class="note muted">ROI একটি অনুমানভিত্তিক মাসিক হিসাব, প্রকৃত লাভ বা ব্যবসার সফলতার নিশ্চয়তা নয়।</p>
+        <button id="interested" class="btn">বিস্তারিত ব্যবসার পরিকল্পনা</button>
+        <div id="fullPlan" class="hidden"></div>
+      </section>
+      <section class="card">
+        <h2>🔬 IT / Computing Research Paper</h2>
+        <h3 id="paperTitle"></h3>
+        <p id="paperOverview"></p>
+        <div id="paperFindings"></div>
+        <p class="note muted" id="paperMeta"></p>
+        <a id="paperLink" target="_blank" rel="noopener noreferrer">মূল গবেষণাপত্র দেখুন</a>
+      </section>
+      <section class="card">
+        <h2>✨ Two Interesting Facts</h2>
+        <div id="facts"></div>
+      </section>
+      <p class="note muted" id="verification"></p>
+    </div>
+  </main>
+  <button type="button" id="adhuriFab" aria-label="Adhuri Telegram chat খুলুন" aria-expanded="false" aria-controls="adhuriGuide">💜</button>
+  <section id="adhuriGuide" class="hidden" role="dialog" aria-label="Adhuri">
+    <button id="guideClose" aria-label="বন্ধ করুন">✕</button>
+    <h2>💜 Adhuri</h2>
+    <p>Adhuri এখন Telegram Bot-এর <strong>নিজস্ব inbox-এ</strong> প্রশ্নের উত্তর দেয়। একটি English word লিখলে বাংলা অর্থ, Parts of Speech, Grammatical Function, বাস্তব ব্যবহার ও বাক্যের প্রসঙ্গ—এই ক্রমে উত্তর পাবে। অন্য প্রশ্নের উত্তরও বাংলায় পাবে।</p>
+    <p class="note muted">GitHub Actions-এর polling ব্যবস্থায় উত্তর আসতে কিছুটা সময় লাগতে পারে।</p>
+    <button class="btn" id="backToTelegram">Telegram Chat-এ ফিরে যাও</button>
+  </section>
+  <script>
+    const $=id=>document.getElementById(id);
+    const tg=window.Telegram?.WebApp;tg?.ready();tg?.expand();
+    let briefing=null;
+    const el=(tag,value)=>{const n=document.createElement(tag);n.textContent=value??'';return n};
+    const money=n=>'৳'+Number(n).toLocaleString('en-BD',{maximumFractionDigits:0});
+    function field(parent,title,value){const row=el('div','');row.className='field';row.append(el('strong',title),el('div',String(value??'তথ্য দেওয়া হয়নি')));parent.append(row)}
+    function linkHTTPS(a,url){if(typeof url!=='string'||!url.startsWith('https://')){a.removeAttribute('href');return}try{const parsed=new URL(url);if(parsed.protocol==='https:')a.href=parsed.href}catch{}}
+    function render(){
+      const b=briefing.business_idea||{},p=briefing.research_paper||{},summary=p.summary||{};
+      $('loading').classList.add('hidden');$('app').classList.remove('hidden');
+      $('date').textContent=briefing.date||'Latest briefing';
+      $('businessTitle').textContent=b.title||'Business idea';
+      $('businessOverview').textContent=b.overview||'';
+      $('businessMeta').textContent='Target: '+(b.target_customer||'Not specified')+' · Revenue: '+(b.revenue_model||'Not specified');
+      $('startupCost').textContent=Number.isFinite(b.startup_cost_bdt_min)&&Number.isFinite(b.startup_cost_bdt_max)
+        ?'আনুমানিক প্রাথমিক বিনিয়োগ: '+money(b.startup_cost_bdt_min)+' – '+money(b.startup_cost_bdt_max)
+        :'প্রাথমিক বিনিয়োগের হিসাব পাওয়া যায়নি';
+      $('monthlyRoi').textContent=Number.isFinite(b.illustrative_monthly_roi_percent)
+        ?'মাসিক সম্ভাব্য ROI (মডেলভিত্তিক): '+b.illustrative_monthly_roi_percent.toFixed(1)+'%':
+        'মাসিক ROI-এর নির্ভরযোগ্য আনুমানিক হিসাব পাওয়া যায়নি';
+      $('interested').onclick=()=>{
+        const target=$('fullPlan');target.classList.toggle('hidden');target.replaceChildren();
+        if(target.classList.contains('hidden'))return;
+        for(const [label,key] of [['Problem','problem'],['চাহিদার সম্ভাব্য কারণ','demand_reason'],['প্রথম ধাপ','first_step'],['যাচাই করার উপায়','validation_plan'],['ঝুঁকি','risks'],['সতর্কতা','confidence_note']])field(target,label,b[key]);
+        if(Array.isArray(b.startup_cost_breakdown)){
+          target.append(el('h3','প্রাথমিক বিনিয়োগের বিবরণ'));
+          for(const item of b.startup_cost_breakdown){if(item&&typeof item.item==='string'&&Number.isFinite(item.estimated_bdt))field(target,item.item,money(item.estimated_bdt))}
+        }
+        if(Number.isFinite(b.illustrative_monthly_revenue_bdt))field(target,'মাসিক আনুমানিক আয়',money(b.illustrative_monthly_revenue_bdt));
+        if(Number.isFinite(b.illustrative_monthly_expenses_bdt))field(target,'মাসিক আনুমানিক খরচ',money(b.illustrative_monthly_expenses_bdt));
+        if(Number.isFinite(b.illustrative_monthly_net_profit_bdt))field(target,'মাসিক আনুমানিক নিট লাভ/ক্ষতি',money(b.illustrative_monthly_net_profit_bdt));
+        field(target,'ROI-সংক্রান্ত সতর্কতা',b.roi_disclaimer||'আনুমানিক হিসাব; সত্যিকারের ফল ভিন্ন হতে পারে');
+      };
+      $('paperTitle').textContent=p.title||'';
+      $('paperOverview').textContent=summary.overview||'';
+      $('paperFindings').replaceChildren();
+      for(const item of (Array.isArray(summary.key_findings)?summary.key_findings:[]))$('paperFindings').append(el('p','• '+item));
+      $('paperMeta').textContent='Field: '+(summary.field||'Computing')+' · Published: '+(p.published||'Unknown');
+      linkHTTPS($('paperLink'),p.url);
+      $('facts').replaceChildren();
+      (Array.isArray(briefing.facts)?briefing.facts:[]).forEach((item,i)=>{
+        const card=el('div','');card.className='fact';
+        field(card,i===0?'প্রাত্যহিক জীবনের তথ্য':'আকর্ষণীয় তথ্য',item.claim);
+        card.append(el('p',String(item.explanation||'')));
+        if(typeof item.source_url==='string'&&item.source_url.startsWith('https://')){
+          const a=el('a','উৎস দেখুন');linkHTTPS(a,item.source_url);card.append(a)
+        }
+        $('facts').append(card);
+      });
+      $('verification').textContent=briefing.verification_note||'AI-generated তথ্য গুরুত্বপূর্ণ সিদ্ধান্তের আগে যাচাই করো।';
+    }
+    $('adhuriFab').onclick=()=>{$('adhuriGuide').classList.toggle('hidden');$('adhuriFab').setAttribute('aria-expanded',String(!$('adhuriGuide').classList.contains('hidden')))};
+    $('guideClose').onclick=()=>$('adhuriGuide').classList.add('hidden');
+    $('backToTelegram').onclick=()=>{if(typeof tg?.close==='function')tg.close();else $('adhuriGuide').querySelector('p').textContent='Telegram-এ যে Bot প্রতিদিন SMS পাঠায়, তার inbox খুলে সরাসরি প্রশ্ন লিখো।'};
+    fetch('./content.json?t='+Date.now()).then(r=>{if(!r.ok)throw Error('আজকের তথ্য পাওয়া যায়নি');return r.json()}).then(d=>{briefing=d;render()}).catch(e=>$('loading').textContent='Briefing লোড করা যায়নি: '+e.message);
+  </script>
+</body>
+</html>

@@ -90,3 +90,17 @@ arXiv/OpenAlex response থেকে paper metadata নেওয়া হয়; URL 
 - Pull requests get independent Python/Worker syntax checks and unit tests, without generating content or sending Telegram messages.
 
 **Outstanding manual setup:** `web/config.js` still needs a deployed Cloudflare Worker HTTPS URL, and the Worker needs a properly configured origin allowlist and real rate limiting. GitHub Actions schedule starts are best-effort and can be hours late; this PR cannot guarantee 07:00 Bangladesh-time delivery. A reliable exact-time schedule needs an external scheduler/trigger and an idempotence strategy.
+
+
+## Adhuri Telegram Inbox (2026-11-26) — Latest Behavior
+
+This section supersedes the old "Tap any word" and Cloudflare vocabulary frontend notes above.
+
+- Normal daily Telegram Business, Research, and Facts SMS messages **do not include any buttons**.
+- Business SMS and website show **illustrative monthly ROI percentage**, calculated from the AI's stated monthly revenue/operating-expense assumptions divided by initial startup cost, not an audited return or success probability.
+- The previous word-tap vocabulary widget and disconnected website chat panel have been removed. The bottom-right Adhuri icon on the site simply takes Telegram Mini App users back to their native bot inbox.
+- In the Telegram bot's private chat, send an English word (e.g., `secure`), or `/word secure`. Adhuri responds in exactly this order: (1) বাংলা অর্থ, (2) Parts of Speech, (3) Grammatical Function, (4) বাস্তব জীবনে ব্যবহার, (5) বাক্যে ব্যবহার ও প্রসঙ্গ. Other questions get Bengali answers, not English-only paragraphs.
+- The bot answers **only** the configured `TELEGRAM_CHAT_ID` private inbox and never records messages in the repository.
+- For now, bot replies use GitHub Actions `.github/workflows/adhuri-inbox.yml`, checking for Telegram updates roughly every five minutes **when GitHub runs the scheduled job**. This is an available free-tier workaround, NOT an always-online, instant webhook. GitHub may delay or skip scheduled Actions; a live Worker webhook would be necessary for timely real-time chat.
+- The polling job detects an existing Telegram webhook and refuses to disrupt it. `getUpdates` and webhooks cannot serve the same bot simultaneously.
+- The Cloudflare Worker code remains in the repo as a future, faster alternative, but Cloudflare credentials are still missing. There is no need to expose the Gemini key to the browser.

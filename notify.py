@@ -30,22 +30,24 @@ def safe_text(value: object, max_length: int = 1200) -> str:
     return esc(text)
 
 
-def send_message(api_url: str, chat_id: str, message: str, keyboard: dict) -> None:
+def send_message(api_url: str, chat_id: str, message: str, keyboard: dict | None = None) -> None:
     """Retry transient Telegram errors without logging the bot token."""
     if len(message) > 3900:
         raise RuntimeError("Telegram message is too long; refusing to truncate HTML markup.")
     for attempt in range(1, 4):
         response = None
         try:
+            payload = {
+                "chat_id": chat_id,
+                "text": message,
+                "parse_mode": "HTML",
+                "disable_web_page_preview": True,
+            }
+            if keyboard is not None:
+                payload["reply_markup"] = keyboard
             response = requests.post(
                 api_url,
-                json={
-                    "chat_id": chat_id,
-                    "text": message,
-                    "parse_mode": "HTML",
-                    "disable_web_page_preview": True,
-                    "reply_markup": keyboard,
-                },
+                json=payload,
                 timeout=(10, 30),
             )
         except requests.RequestException as exc:
@@ -77,7 +79,6 @@ def send_message(api_url: str, chat_id: str, message: str, keyboard: dict) -> No
 def main() -> None:
     token = required_env("TELEGRAM_BOT_TOKEN")
     chat_id = required_env("TELEGRAM_CHAT_ID")
-    site_url = required_env("SITE_URL").rstrip("/")
     content_path = Path(__file__).resolve().parent / "site" / "content.json"
     if not content_path.is_file():
         raise RuntimeError(f"Generated content not found at {content_path}. The build artifact may be missing.")
@@ -94,7 +95,6 @@ def main() -> None:
     paper_url = str(paper.get("url", ""))
     if not paper_url.startswith("https://"):
         paper_url = "https://arxiv.org"
-    miniapp_url = site_url + "/"  # Older dates are not archived; do not imply deep links work.
     api_url = f"https://api.telegram.org/bot{token}/sendMessage"
 
     messages = [
@@ -105,8 +105,10 @@ def main() -> None:
             f"<b>Target customer:</b> {safe_text(business.get('target_customer'), 400)}\n"
             f"<b>Revenue model:</b> {safe_text(business.get('revenue_model'), 400)}\n"
             f"<b>Estimated startup cost:</b> ৳{business.get('startup_cost_bdt_min', 0):,}–৳{business.get('startup_cost_bdt_max', 0):,} (indicative, not a quotation)\n"
-            f"<b>Demand:</b> {safe_text(business.get('demand_reason'), 280)}\n\n"
-            "Want the costs and pilot plan? Open the briefing and tap <b>Interested</b>."
+            f"<b>Demand:</b> {safe_text(business.get('demand_reason'), 280)}\n"
+            f"<b>Illustrative monthly ROI:</b> {safe_text(str(business.get('illustrative_monthly_roi_percent')) + '%' if business.get('illustrative_monthly_roi_percent') is not None else 'Not estimated', 60)}\n"
+            f"<b>Illustrative monthly net profit:</b> {safe_text(('৳' + format(business['illustrative_monthly_net_profit_bdt'], ',')) if isinstance(business.get('illustrative_monthly_net_profit_bdt'), int) else 'Not estimated', 80)}\n"
+            "<i>These are unverified scenario estimates, not guaranteed returns.</i>"
         ),
         (
             "🔬 <b>Research Paper of the Day</b>\n"
@@ -120,18 +122,12 @@ def main() -> None:
             f"<b>Daily life:</b> {safe_text(facts[0].get('claim'), 550)}\n"
             f"{safe_text(facts[0].get('explanation'), 950)}\n\n"
             f"<b>Any topic:</b> {safe_text(facts[1].get('claim'), 550)}\n"
-            f"{safe_text(facts[1].get('explanation'), 950)}\n\n"
-            "Tap <b>Open briefing</b> to explore vocabulary and sources."
+            f"{safe_text(facts[1].get('explanation'), 950)}"
         ),
     ]
-    keyboard = {
-        "inline_keyboard": [[{
-            "text": "📖 Open briefing & tap any word",
-            "web_app": {"url": miniapp_url},
-        }]]
-    }
+    # No buttons under daily SMS; Adhuri lives in the Telegram bot inbox.
     for index, message in enumerate(messages, start=1):
-        send_message(api_url, chat_id, message, keyboard)
+        send_message(api_url, chat_id, message)
         print(f"Telegram message {index}/3 sent.")
     print("Sent all three Telegram notifications.")
 

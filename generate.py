@@ -375,6 +375,22 @@ def calculate_startup_costs(idea: dict) -> None:
         "NOT verified local quotations. Costs and profitability depend on location and demand."
     )
     idea["success_probability"] = None  # Cannot honestly promise 90-95% success.
+    # ROI is a transparent, ILLUSTRATIVE scenario, not a reliable forecast.
+    revenue = idea.get("illustrative_monthly_revenue_bdt")
+    expense = idea.get("illustrative_monthly_expenses_bdt")
+    if (type(revenue) is int and type(expense) is int
+            and 0 <= revenue <= 100_000_000 and 0 <= expense <= 100_000_000):
+        profit = revenue - expense
+        idea["illustrative_monthly_net_profit_bdt"] = profit
+        idea["illustrative_monthly_roi_percent"] = round(profit * 100 / total, 1)
+    else:
+        idea["illustrative_monthly_net_profit_bdt"] = None
+        idea["illustrative_monthly_roi_percent"] = None
+    idea["roi_disclaimer"] = (
+        "Estimated monthly ROI = (illustrative monthly revenue minus monthly expenses) "
+        "/ estimated initial startup cost × 100. The scenario is AI-generated, "
+        "not independently verified, and actual returns could be negative."
+    )
 
 
 def get_openalex_paper() -> dict | None:
@@ -510,8 +526,9 @@ Explain credible recurring local demand, target customers, competitive factors a
 Do not promise profits, claim guaranteed success, or invent a 90-95% success probability. No fabricated market figures or supplier quotes.
 Give an itemized INITIAL STARTUP BUDGET in BDT (Bangladeshi taka), including appropriate equipment, setup, initial stock, permits/deposits and a working-capital reserve. Estimates must be conservative but plausible for Bangladesh. Each item's estimated_bdt must be a nonnegative INTEGER.
 Return ONLY one valid JSON object with keys business_idea and facts.
-business_idea keys: title, category, overview (max 60 words), problem, target_customer, revenue_model, first_step, risks, confidence_note, demand_reason, validation_plan, startup_cost_breakdown.
+business_idea keys: title, category, overview (max 60 words), problem, target_customer, revenue_model, first_step, risks, confidence_note, demand_reason, validation_plan, startup_cost_breakdown, illustrative_monthly_revenue_bdt, illustrative_monthly_expenses_bdt.
 startup_cost_breakdown must be an array of 3-12 objects, each with keys item (string) and estimated_bdt (integer). Do not supply a business success percentage.
+Also provide business_idea.illustrative_monthly_revenue_bdt and business_idea.illustrative_monthly_expenses_bdt as NONNEGATIVE INTEGER BDT assumptions for a conservative example month. Include realistic operating expenses: rent, utilities, staff, inventory and supplies where relevant. Do not treat monthly revenue as profit; allow negative returns. These are NOT verified quotations or dependable forecasts.
 facts must be an array of exactly TWO objects with claim, explanation, source_url, source_verified.
 facts[0] = practical/everyday science or daily-life fact. facts[1] = fascinating fact from ANY other domain (animals, astronomy, history, computing, nature etc.).
 Do not invent statistics or sources. If source uncertain use source_url="" and source_verified=false. No medical treatment advice.
