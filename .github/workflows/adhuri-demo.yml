@@ -1,0 +1,41 @@
+name: One-time Adhuri demo notification
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/adhuri-demo.yml']
+permissions:
+  contents: read
+jobs:
+  demo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Send Telegram demonstration
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python - <<'PY'
+          import json, os, urllib.request
+          token=os.environ.get('TELEGRAM_BOT_TOKEN','').strip()
+          chat=os.environ.get('TELEGRAM_CHAT_ID','').strip()
+          if not token or not chat: raise RuntimeError('Telegram Actions secrets missing.')
+          message=('✨ Daily AI Agent + Adhuri — DEMO\n\n'
+              '💡 Business ideas: offline and online with estimated startup costs in BDT.\n'
+              '🔬 Research: computing, IT and cybersecurity only.\n'
+              '🌎 Two interesting facts daily.\n'
+              '📚 Vocabulary: Bangla meaning, grammar, real-life example popup.\n'
+              '💬 Adhuri floating chatbot; live replies require Cloudflare Worker deployment.\n\n'
+              'This is a demo notification, not a generated briefing. Costs are unverified estimates; success cannot be guaranteed.\n'
+              'https://mdrahman-codes.github.io/daily-ai-agent-/')
+          url='https://api.telegram.org/bot'+token+'/sendMessage'
+          payload=json.dumps({'chat_id':chat,'text':message,'disable_web_page_preview':True}).encode()
+          req=urllib.request.Request(url,data=payload,headers={'Content-Type':'application/json'},method='POST')
+          try:
+              with urllib.request.urlopen(req,timeout=25) as response:
+                  output=json.load(response)
+              if not output.get('ok'): raise RuntimeError('Telegram rejected message.')
+              print('Telegram demo sent successfully.')
+          except Exception as error:
+              raise RuntimeError('Telegram demo failed ('+type(error).__name__+'); secrets hidden.') from None
+          PY
