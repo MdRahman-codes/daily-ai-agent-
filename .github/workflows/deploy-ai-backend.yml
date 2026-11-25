@@ -1,0 +1,113 @@
+name: Deploy Adhuri and Vocabulary AI backend
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/deploy-ai-backend.yml', 'worker.js', 'wrangler.toml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: daily-ai-agent-pages
+  cancel-in-progress: false
+jobs:
+  credentials:
+    runs-on: ubuntu-latest
+    outputs:
+      available: ${{ steps.check.outputs.available }}
+    steps:
+      - id: check
+        name: Check required Cloudflare credentials without revealing values
+        env:
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          GEMINI: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          if [ -n "$CF_TOKEN" ] && [ -n "$CF_ACCOUNT" ] && [ -n "$GEMINI" ]; then
+            echo 'available=true' >> "$GITHUB_OUTPUT"
+            echo 'Cloudflare deployment credentials available.'
+          else
+            echo 'available=false' >> "$GITHUB_OUTPUT"
+            echo 'Cloudflare authentication unavailable; backend deployment cannot start.'
+          fi
+  deploy:
+    needs: credentials
+    if: needs.credentials.outputs.available == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Deploy Worker and securely configure Gemini key
+        run: |
+          npx --yes wrangler@4 deploy
+          printf '%s' "$GEMINI_API_KEY" | npx --yes wrangler@4 secret put GEMINI_API_KEY --name daily-agent-adhuri
+      - name: Discover workers.dev address and check API response
+        id: worker
+        run: |
+          python - <<'PY'
+          import json, os, re, urllib.request, urllib.error
+          account=os.environ['CLOUDFLARE_ACCOUNT_ID']
+          req=urllib.request.Request('https://api.cloudflare.com/client/v4/accounts/'+account+'/workers/subdomain',headers={'Authorization':'Bearer '+os.environ['CLOUDFLARE_API_TOKEN']})
+          with urllib.request.urlopen(req,timeout=20) as response: result=json.load(response)
+          subdomain=(result.get('result') or {}).get('subdomain','')
+          if not re.fullmatch(r'[A-Za-z0-9-]{3,80}',subdomain): raise RuntimeError('Could not discover safe Cloudflare subdomain.')
+          worker_url='https://daily-agent-adhuri.'+subdomain+'.workers.dev'
+          print('Worker deployed to '+worker_url)
+          with open(os.environ['GITHUB_OUTPUT'],'a') as output: output.write('url='+worker_url+'\n')
+          sample=json.dumps({'word':'network','sentence':'A secure network protects data.'}).encode()
+          check=urllib.request.Request(worker_url+'/explain',data=sample,headers={'Origin':'https://mdrahman-codes.github.io','Content-Type':'application/json'},method='POST')
+          with urllib.request.urlopen(check,timeout=75) as response: answer=json.load(response)
+          if not isinstance(answer,dict) or not answer.get('meaning_bn'): raise RuntimeError('Worker smoke test did not return a meaning')
+          print('Vocabulary live AI smoke test passed.')
+          PY
+      - name: Write public backend URL into website config
+        env:
+          WORKER_URL: ${{ steps.worker.outputs.url }}
+        run: |
+          python - <<'PY'
+          import os,json
+          url=os.environ['WORKER_URL']
+          with open('web/config.js','w',encoding='utf-8') as f:
+              f.write('// Public Worker URL only. Gemini API key stays in Worker secrets.\nwindow.DAILY_AGENT_CONFIG = '+json.dumps({'vocabularyApiUrl':url})+';\n')
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add web/config.js
+          if ! git diff --cached --quiet; then
+            git commit -m 'Configure deployed Adhuri backend URL'
+            git push origin HEAD:main
+          fi
+      - name: Preserve current briefing for immediate UI publication
+        run: |
+          mkdir -p site
+          cp web/index.html web/config.js site/
+          python - <<'PY'
+          import urllib.request,json
+          url='https://mdrahman-codes.github.io/daily-ai-agent-/content.json'
+          request=urllib.request.Request(url,headers={'Cache-Control':'no-cache'})
+          with urllib.request.urlopen(request,timeout=20) as r: b=r.read(400000)
+          data=json.loads(b)
+          if not isinstance(data,dict) or 'business_idea' not in data or 'facts' not in data:
+              raise RuntimeError('Could not safely preserve last daily briefing.')
+          open('site/content.json','wb').write(b)
+          PY
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - uses: actions/deploy-pages@v4
+        id: deployment
