@@ -79,7 +79,6 @@ def send_message(api_url: str, chat_id: str, message: str, keyboard: dict | None
 def main() -> None:
     token = required_env("TELEGRAM_BOT_TOKEN")
     chat_id = required_env("TELEGRAM_CHAT_ID")
-    site_url = required_env("SITE_URL").rstrip("/")
     content_path = Path(__file__).resolve().parent / "site" / "content.json"
     if not content_path.is_file():
         raise RuntimeError(f"Generated content not found at {content_path}. The build artifact may be missing.")
