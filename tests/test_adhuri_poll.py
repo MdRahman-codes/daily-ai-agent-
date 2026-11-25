@@ -15,7 +15,7 @@ class BotTests(unittest.TestCase):
         self.assertEqual(sorted(s.index(x) for x in labels), [s.index(x) for x in labels])
 
     def test_html_escape(self):
-        obj = {k: "<script>x</script>" for k in FIELDS}
+        obj = {k: "<script>x</script> নিরাপদ" for k in FIELDS}
         s = bot.word_reply("<test>", obj)
         self.assertNotIn("<script>", s)
         self.assertIn("&lt;script&gt;", s)
