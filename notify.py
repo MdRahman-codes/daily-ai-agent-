@@ -4,8 +4,8 @@ from __future__ import annotations
 import html
 import json
 import os
+import time
 from pathlib import Path
-from urllib.parse import quote
 
 import requests
 
@@ -31,34 +31,48 @@ def safe_text(value: object, max_length: int = 1200) -> str:
 
 
 def send_message(api_url: str, chat_id: str, message: str, keyboard: dict) -> None:
-    try:
-        response = requests.post(
-            api_url,
-            json={
-                "chat_id": chat_id,
-                "text": message[:3900],
-                "parse_mode": "HTML",
-                "disable_web_page_preview": True,
-                "reply_markup": keyboard,
-            },
-            timeout=(10, 30),
-        )
-    except requests.RequestException as exc:
-        # Avoid printing the requests exception: its URL may contain the bot token.
-        raise RuntimeError(f"Telegram request failed ({type(exc).__name__}); token is not shown for safety.") from None
-    if not response.ok:
+    """Retry transient Telegram errors without logging the bot token."""
+    if len(message) > 3900:
+        raise RuntimeError("Telegram message is too long; refusing to truncate HTML markup.")
+    for attempt in range(1, 4):
+        response = None
         try:
-            description = response.json().get("description", "Telegram API request failed")
-        except (ValueError, AttributeError):
-            description = "Telegram API request failed"
-        raise RuntimeError(f"Telegram returned HTTP {response.status_code}: {description}")
-    try:
-        payload = response.json()
-    except ValueError:
-        raise RuntimeError("Telegram returned a non-JSON response.") from None
-    if not payload.get("ok"):
-        raise RuntimeError(f"Telegram API error: {payload.get('description', 'unknown error')}")
-
+            response = requests.post(
+                api_url,
+                json={
+                    "chat_id": chat_id,
+                    "text": message,
+                    "parse_mode": "HTML",
+                    "disable_web_page_preview": True,
+                    "reply_markup": keyboard,
+                },
+                timeout=(10, 30),
+            )
+        except requests.RequestException as exc:
+            if attempt >= 3:
+                raise RuntimeError(
+                    f"Telegram request failed ({type(exc).__name__}); token hidden."
+                ) from None
+        else:
+            try:
+                payload = response.json()
+            except ValueError:
+                payload = {}
+            if response.ok and isinstance(payload, dict) and payload.get("ok") is True:
+                return
+            code = response.status_code
+            if isinstance(payload, dict) and isinstance(payload.get("error_code"), int):
+                code = payload["error_code"]
+            if code not in {429, 500, 502, 503, 504} or attempt >= 3:
+                raise RuntimeError(f"Telegram API failed (HTTP {code}); check bot permissions and chat ID.")
+            parameters = payload.get("parameters", {}) if isinstance(payload, dict) else {}
+            retry_after = parameters.get("retry_after", 0) if isinstance(parameters, dict) else 0
+            if isinstance(retry_after, int) and 0 < retry_after <= 30:
+                time.sleep(retry_after)
+                continue
+        if attempt < 3:
+            time.sleep(2 ** (attempt - 1))
+    raise RuntimeError("Telegram message failed after retries.")
 
 def main() -> None:
     token = required_env("TELEGRAM_BOT_TOKEN")
@@ -80,7 +94,7 @@ def main() -> None:
     paper_url = str(paper.get("url", ""))
     if not paper_url.startswith("https://"):
         paper_url = "https://arxiv.org"
-    miniapp_url = site_url + "/?date=" + quote(str(content.get("date", "")))
+    miniapp_url = site_url + "/"  # Older dates are not archived; do not imply deep links work.
     api_url = f"https://api.telegram.org/bot{token}/sendMessage"
 
     messages = [

@@ -87,6 +87,39 @@ class GenerateTests(unittest.TestCase):
         self.assertEqual(gemini_call.call_count, 2)
         requests_get.assert_not_called()
 
+    def test_review_blocks_likely_inaccurate_facts(self):
+        facts = [{"claim": "False", "source_verified": True}, {"claim": "True"}]
+        reviews = {"facts": [
+            {"status": "likely inaccurate", "safer_wording": "", "reason": "False claim"},
+            {"status": "uncertain", "safer_wording": "Maybe", "reason": "Unverified"},
+        ]}
+        with self.assertRaisesRegex(RuntimeError, "likely inaccurate"):
+            generate.validate_fact_review(facts, reviews)
+
+    def test_review_fails_closed_on_missing_results(self):
+        with self.assertRaisesRegex(RuntimeError, "exactly two"):
+            generate.validate_fact_review([{}, {}], {"facts": []})
+
+    def test_url_validation_rejects_internal_addresses(self):
+        self.assertEqual(generate.clean_https_url("https://127.0.0.1/private"), "")
+        self.assertEqual(generate.clean_https_url("https://169.254.169.254/latest"), "")
+        self.assertEqual(generate.clean_https_url("https://localhost/private"), "")
+        self.assertFalse(generate.safe_probe("https://evil.example/path"))
+        self.assertTrue(generate.safe_probe("https://www.nasa.gov/path"))
+
+    @patch('generate.requests.get')
+    def test_fact_source_does_not_request_untrusted_host(self, get):
+        facts = [{"claim": "c", "source_url": "https://evil.example/x", "source_verified": True}]
+        generate.check_fact_sources(facts)
+        get.assert_not_called()
+        self.assertFalse(facts[0]["source_verified"])
+
+    @patch('generate.gemini')
+    def test_json_response_repaired_after_non_object(self, gemini):
+        gemini.side_effect = ['[]', '{"ok": true}']
+        self.assertEqual(generate.gemini_json("JSON"), {"ok": True})
+        self.assertEqual(gemini.call_count, 2)
+
     def test_model_chain_removes_duplicates(self):
         with (
             patch.object(generate, 'MODEL', 'one'),

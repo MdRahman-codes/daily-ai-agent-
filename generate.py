@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import ipaddress
 import os
 import random
 import re
@@ -175,6 +176,73 @@ def json_from(raw_text: str) -> dict:
     return parsed
 
 
+def gemini_json(prompt: str) -> dict:
+    """Try once more if the model returns malformed or non-object JSON.
+
+    Do not retry API errors here; the Gemini client already handles those.
+    """
+    last_error = None
+    for attempt in range(2):
+        answer = gemini(prompt if attempt == 0 else prompt + "\nIMPORTANT: Return exactly one valid JSON object, not an array or prose.")
+        try:
+            return json_from(answer)
+        except RuntimeError as exc:
+            last_error = exc
+            print(f"Gemini returned malformed JSON on attempt {attempt + 1}/2.")
+    raise RuntimeError("Gemini returned malformed JSON twice; refusing to publish.") from last_error
+
+
+def clean_https_url(value: object) -> str:
+    """Reject private-network and malformed URLs from untrusted model output."""
+    if not isinstance(value, str) or len(value) > 2048:
+        return ""
+    url = value.strip()
+    try:
+        p = urlparse(url)
+        host = (p.hostname or "").rstrip(".").lower()
+        if p.scheme != "https" or not host or p.username or p.password or p.port not in (None, 443):
+            return ""
+        if host in {"localhost", "localhost.localdomain"} or "." not in host:
+            return ""
+        try:
+            ipaddress.ip_address(host)
+            return ""  # Never accept IP literals supplied by an AI.
+        except ValueError:
+            pass
+    except ValueError:
+        return ""
+    return url
+
+
+def safe_probe(url: str) -> bool:
+    """Probe only fixed trusted hosts, with redirects disabled (SSRF defense)."""
+    host = (urlparse(url).hostname or "").lower()
+    trusted = ("arxiv.org", "doi.org", "nasa.gov", "noaa.gov", "nih.gov", "cdc.gov",
+               "nist.gov", "usgs.gov", "who.int", "nature.com", "science.org",
+               "britannica.com", "si.edu", "nationalgeographic.com")
+    return any(host == domain or host.endswith("." + domain) for domain in trusted)
+
+
+def validate_fact_review(facts: list[dict], result: dict) -> list[dict]:
+    """Do not quietly publish facts rejected by the secondary review."""
+    reviews = result.get("facts")
+    allowed = {"plausible; source still needs human review", "uncertain", "likely inaccurate"}
+    if not isinstance(reviews, list) or len(reviews) != 2:
+        raise RuntimeError("Fact review must return exactly two results; refusing to publish.")
+    for index, review in enumerate(reviews):
+        if not isinstance(review, dict) or review.get("status") not in allowed:
+            raise RuntimeError("Fact review has invalid status; refusing to publish.")
+        if review["status"] == "likely inaccurate":
+            raise RuntimeError(f"Fact {index + 1} was flagged likely inaccurate; refusing to publish.")
+        for field in ("reason", "safer_wording"):
+            if not isinstance(review.get(field), str):
+                review[field] = ""
+        if review["status"] == "uncertain" and review["safer_wording"].strip():
+            facts[index]["claim"] = review["safer_wording"].strip()
+        facts[index]["source_verified"] = False  # URL response + AI opinion is not verification.
+    return reviews
+
+
 def reconstruct_abstract(inverted_index: object) -> str:
     if not isinstance(inverted_index, dict) or not inverted_index:
         return ""
@@ -294,13 +362,19 @@ Return valid JSON with keys: overview (2 sentences), key_findings (2 concise bul
 Clearly distinguish abstract claims from interpretation.
 TITLE: {title}
 ABSTRACT: {abstract}"""
-    result = json_from(gemini(prompt))
+    result = gemini_json(prompt)
     result.setdefault("overview", "Summary unavailable; please open the original paper.")
     result.setdefault("key_findings", [])
     result.setdefault("limitations", "The abstract does not specify the limitations clearly.")
     result.setdefault("practical_relevance", "Review the original paper to assess practical relevance.")
     result.setdefault("field", "CSE")
     result.setdefault("reading_level", "intermediate")
+    if not isinstance(result["overview"], str) or not isinstance(result["key_findings"], list):
+        raise RuntimeError("Paper summary contains invalid types; refusing to publish.")
+    result["key_findings"] = [item for item in result["key_findings"] if isinstance(item, str)][:4]
+    for field in ("field", "reading_level", "limitations", "practical_relevance"):
+        if not isinstance(result[field], str):
+            result[field] = "Not specified"
     return result
 
 
@@ -324,9 +398,9 @@ def get_research_paper() -> dict:
 
     paper["source_reachable"] = False
     try:
-        parsed = urlparse(paper["url"])
-        if parsed.scheme == "https" and parsed.hostname:
-            check = requests.get(paper["url"], timeout=(10, 15), allow_redirects=True, headers=HEADERS)
+        paper["url"] = clean_https_url(paper["url"])
+        if paper["url"] and safe_probe(paper["url"]):
+            check = requests.get(paper["url"], timeout=(10, 15), allow_redirects=False, headers=HEADERS)
             paper["source_reachable"] = check.status_code < 400
     except requests.RequestException:
         pass
@@ -341,17 +415,17 @@ def get_research_paper() -> dict:
 def check_fact_sources(facts: list[dict]) -> None:
     """Check HTTPS link reachability only; never present that as proof of a claim."""
     for fact in facts:
-        source = str(fact.get("source_url", "") or "").strip()
+        source = clean_https_url(fact.get("source_url", ""))
+        fact["source_url"] = source
+        fact["source_verified"] = False
         fact["source_reachable"] = False
-        parsed = urlparse(source)
-        if parsed.scheme != "https" or not parsed.hostname:
-            fact["source_url"] = ""
+        if not source or not safe_probe(source):
             continue
         try:
-            response = requests.get(source, timeout=(5, 10), allow_redirects=True, headers=HEADERS)
+            response = requests.get(source, timeout=(5, 10), allow_redirects=False, headers=HEADERS)
             fact["source_reachable"] = response.status_code < 400
         except requests.RequestException:
-            fact["source_reachable"] = False
+            pass
 
 
 def main() -> None:
@@ -366,7 +440,7 @@ business_idea must have: title, overview (max 45 words), problem, target_custome
 Give exactly two facts. Each fact must have claim, explanation (one or two sentences), source_url, source_verified (boolean).
 facts[0] must concern everyday life, habits, perception, sleep, learning or technology use. facts[1] may concern animals, space, science, history or any topic.
 Prefer reputable primary or established sources. Do not invent statistics or URLs. If unsure, use empty source_url and source_verified false. Avoid myths, exaggerated claims, medical advice and generic repeated ideas. Do not include the research paper because it is supplied separately."""
-    generated = json_from(gemini(prompt))
+    generated = gemini_json(prompt)
     business_idea = generated.get("business_idea")
     facts = generated.get("facts")
     if not isinstance(business_idea, dict):
@@ -375,12 +449,13 @@ Prefer reputable primary or established sources. Do not invent statistics or URL
         raise RuntimeError("Gemini must return exactly two valid fact objects; refusing to publish.")
     required_business = ("title", "overview", "problem", "target_customer", "revenue_model", "first_step", "risks", "confidence_note")
     for field in required_business:
-        business_idea.setdefault(field, "Not specified")
+        if not isinstance(business_idea.get(field), str) or not business_idea[field].strip():
+            business_idea[field] = "Not specified"
     for index, fact in enumerate(facts):
-        for field in ("claim", "explanation", "source_url"):
-            fact.setdefault(field, "" if field == "source_url" else "Not provided")
-        fact.setdefault("source_verified", False)
-        if not str(fact["claim"]).strip() or not str(fact["explanation"]).strip():
+        for field in ("claim", "explanation"):
+            if not isinstance(fact.get(field), str):
+                fact[field] = ""
+        if not fact["claim"].strip() or not fact["explanation"].strip():
             raise RuntimeError(f"Fact {index + 1} is missing its claim or explanation; refusing to publish.")
     check_fact_sources(facts)
 
@@ -388,10 +463,8 @@ Prefer reputable primary or established sources. Do not invent statistics or URL
 Do not pretend you independently browsed URLs. source_reachable only means the web request received a response, not that the source supports the claim.
 Return JSON with exactly two objects in facts, each having status (one of 'plausible; source still needs human review', 'uncertain', or 'likely inaccurate'), safer_wording, and reason. Be cautious and explicit about uncertainty.
 FACTS: {json.dumps(facts, ensure_ascii=False)}"""
-    fact_review_result = json_from(gemini(review_prompt))
-    fact_review = fact_review_result.get("facts", [])
-    if not isinstance(fact_review, list):
-        fact_review = []
+    fact_review_result = gemini_json(review_prompt)
+    fact_review = validate_fact_review(facts, fact_review_result)
 
     payload = {
         "date": date_label,
