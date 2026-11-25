@@ -1,0 +1,93 @@
+name: Send live-format daily briefing demo
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/live-format-demo.yml']
+permissions:
+  contents: read
+concurrency:
+  group: daily-ai-agent-pages
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Generate actual daily-format content
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: gemini-3.6-flash
+          GEMINI_FALLBACK_MODELS: gemini-3.5-flash-lite,gemini-3.8-flash
+          GEMINI_RETRIES_PER_MODEL: '2'
+        run: python generate.py
+      - name: Check genuine content before sending
+        run: |
+          python - <<'PY'
+          import json
+          x=json.load(open('site/content.json',encoding='utf-8'))
+          assert len(x['facts'])==2 and x['research_paper']['title'] and x['business_idea']['title']
+          assert x['business_idea']['startup_cost_bdt_min']>0
+          print('Generated actual business, computing research paper, and 2 facts')
+          PY
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - uses: actions/upload-artifact@v4
+        with:
+          name: live-demo-content
+          path: site/content.json
+          if-no-files-found: error
+          retention-days: 1
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy_step.outputs.page_url }}
+    steps:
+      - uses: actions/deploy-pages@v4
+        id: deploy_step
+  notify:
+    needs: deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v4
+        with:
+          name: live-demo-content
+          path: site
+      - name: Install requests
+        run: pip install -r requirements.txt
+      - name: Send 3 genuine messages with production notifier
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          SITE_URL: https://mdrahman-codes.github.io/daily-ai-agent-
+        run: python notify.py
+  detect-backend-credentials:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Cloudflare credential availability (boolean only)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -n "$CLOUDFLARE_API_TOKEN" ] && [ -n "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo 'Cloudflare deploy credentials: AVAILABLE'
+          else
+            echo 'Cloudflare deploy credentials: MISSING'
+          fi
