@@ -1,0 +1,38 @@
+name: One-time Adhuri real AI smoke test
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/adhuri-smoke.yml']
+permissions:
+  contents: read
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Send an actual AI-generated Bengali vocabulary response
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: gemini-3.6-flash
+          GEMINI_FALLBACK_MODELS: gemini-3.5-flash-lite
+          GEMINI_RETRIES_PER_MODEL: '2'
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python - <<'PY'
+          import os,re
+          import adhuri_poll as bot
+          answer=bot.answer('secure')
+          if not re.search(r'[\u0980-\u09FF]',answer):
+              raise RuntimeError('The model did not produce a Bangla vocabulary explanation.')
+          for marker in ('বাংলা অর্থ','Parts of Speech','Grammatical Function','বাস্তব জীবনে ব্যবহার','বাক্যে ব্যবহার ও প্রসঙ্গ'):
+              if marker not in answer: raise RuntimeError('Missing vocabulary section')
+          bot.api('sendMessage',chat_id=os.environ['TELEGRAM_CHAT_ID'],text='🧪 <b>Adhuri live AI test</b>\n\n'+answer,parse_mode='HTML')
+          print('Real Gemini vocabulary response generated in Bangla and sent to Telegram.')
+          PY
