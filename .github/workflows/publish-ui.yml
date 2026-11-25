@@ -1,8 +1,6 @@
 name: Publish updated briefing interface
 on:
-  push:
-    branches: [main]
-    paths: ['.github/workflows/publish-ui.yml', 'web/index.html']
+  workflow_dispatch:
 permissions:
   contents: read
 concurrency:
@@ -26,7 +24,7 @@ jobs:
           PREVIOUS_URL: https://mdrahman-codes.github.io/daily-ai-agent-/content.json
         run: |
           mkdir -p site
-          cp web/index.html web/config.js site/
+          cp web/index.html site/
           python - <<'PY'
           import os, urllib.request
           url=os.environ['PREVIOUS_URL']

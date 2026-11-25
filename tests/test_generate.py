@@ -19,6 +19,15 @@ class FakeResponse:
 
 
 class GenerateTests(unittest.TestCase):
+    def test_bengali_date(self):
+        from datetime import datetime, timezone, timedelta
+        now = datetime(2026, 11, 26, 7, tzinfo=timezone(timedelta(hours=6)))
+        self.assertEqual(generate.bangla_date(now), 'বৃহস্পতিবার, ২৬ নভেম্বর ২০২৬')
+
+    def test_reject_english_only_business(self):
+        with self.assertRaisesRegex(RuntimeError, 'Bengali'):
+            generate.validate_bangla_briefing({'title': 'Only English'}, {}, [])
+
     def test_json_from_fenced_json(self):
         self.assertEqual(generate.json_from('```json\n{"ok": true}\n```'), {"ok": True})
 
@@ -59,34 +68,37 @@ class GenerateTests(unittest.TestCase):
         research.return_value = {
             "title": "Example paper", "abstract": "Example abstract", "url": "https://arxiv.org/abs/1234.5678",
             "authors": ["Author"], "published": "2026-10-01", "metadata_source": "arXiv API",
-            "summary": {"overview": "A safe overview.", "key_findings": ["One", "Two"], "field": "CSE"}
+            "summary": {"title_bn": "গবেষণার উদাহরণ", "overview": "নিরাপদ গবেষণার ব্যাখ্যা", "key_findings": ["প্রথম বিষয়", "দ্বিতীয় বিষয়"], "field": "কম্পিউটার বিজ্ঞান", "reading_level": "মধ্যম", "limitations": "সীমাবদ্ধতার কথা উল্লেখ নেই", "practical_relevance": "বাস্তবে প্রয়োগের সুযোগ আছে"}
         }
         generated = {
             "business_idea": {
-                "title": "Example", "overview": "Brief idea", "problem": "Problem", "target_customer": "Learners",
-                "revenue_model": "Subscription", "first_step": "Interview users", "risks": "Competition", "confidence_note": "No guarantee",
-                "startup_cost_breakdown": [{"item": "Tools", "estimated_bdt": 10000}, {"item": "Rent", "estimated_bdt": 5000}, {"item": "Stock", "estimated_bdt": 20000}]
+                "title": "দোকানের ধারণা", "category": "খুচরা ব্যবসা", "overview": "ব্যবসার বিবরণ", "problem": "ব্যবসার সমস্যা", "target_customer": "স্থানীয় ক্রেতা",
+                "revenue_model": "পণ্য বিক্রি", "first_step": "চাহিদা যাচাই", "risks": "প্রতিযোগিতা", "confidence_note": "লাভের নিশ্চয়তা নেই",
+                "demand_reason": "নিত্যপ্রয়োজন", "validation_plan": "ছোট পরিসরে পরীক্ষা",
+                "startup_cost_breakdown": [{"item": "সরঞ্জাম", "estimated_bdt": 10000}, {"item": "ভাড়া", "estimated_bdt": 5000}, {"item": "পণ্য", "estimated_bdt": 20000}]
             },
             "facts": [
-                {"claim": "Fact one", "explanation": "Explanation one.", "source_url": "", "source_verified": False},
-                {"claim": "Fact two", "explanation": "Explanation two.", "source_url": "", "source_verified": False}
+                {"claim": "প্রথম তথ্য", "explanation": "প্রথম ব্যাখ্যা।", "source_url": "", "source_verified": False},
+                {"claim": "দ্বিতীয় তথ্য", "explanation": "দ্বিতীয় ব্যাখ্যা।", "source_url": "", "source_verified": False}
             ]
         }
         review = {"facts": [
-            {"status": "uncertain", "safer_wording": "Fact one", "reason": "Test"},
-            {"status": "uncertain", "safer_wording": "Fact two", "reason": "Test"}
+            {"status": "uncertain", "safer_wording": "প্রথম তথ্য", "reason": "অনিশ্চিত"},
+            {"status": "uncertain", "safer_wording": "দ্বিতীয় তথ্য", "reason": "অনিশ্চিত"}
         ]}
         gemini_call.side_effect = [json.dumps(generated), json.dumps(review)]
         with tempfile.TemporaryDirectory() as tmp, patch.object(generate, 'SITE', Path(tmp)):
             generate.main()
             payload = json.loads((Path(tmp) / 'content.json').read_text(encoding='utf-8'))
             self.assertEqual(len(payload['facts']), 2)
-            self.assertEqual(payload['business_idea']['title'], 'Example')
+            self.assertEqual(payload['business_idea']['title'], 'দোকানের ধারণা')
+            self.assertEqual(payload['research_paper']['summary']['title_bn'], 'গবেষণার উদাহরণ')
+            self.assertIn('নভেম্বর', payload['date_bn'])
             self.assertEqual(payload['business_idea']['startup_cost_bdt_min'], 35000)
             self.assertEqual(payload['business_idea']['startup_cost_bdt_max'], 42000)
             self.assertEqual(payload['research_paper']['metadata_source'], 'arXiv API')
             self.assertTrue((Path(tmp) / 'index.html').is_file())
-            self.assertTrue((Path(tmp) / 'config.js').is_file())
+            self.assertFalse((Path(tmp) / 'config.js').exists())
         self.assertEqual(gemini_call.call_count, 2)
         requests_get.assert_not_called()
 

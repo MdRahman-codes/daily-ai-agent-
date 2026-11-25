@@ -1,132 +1,125 @@
 <!doctype html>
 <html lang="bn">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <meta name="color-scheme" content="light dark"/>
-  <title>Daily AI Agent — বাংলা Briefing</title>
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <style>
-    :root{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color-scheme:light dark}
-    *{box-sizing:border-box}
-    body{margin:0;min-height:100dvh;background:var(--tg-theme-bg-color,#f6f7fb);color:var(--tg-theme-text-color,#18202b)}
-    main{max-width:780px;margin:0 auto;padding:16px 13px 110px}
-    header{display:flex;justify-content:space-between;align-items:center;gap:14px;margin:6px 0 22px}
-    h1{font-size:23px;margin:0 0 4px}h2{font-size:19px;margin:0 0 12px}h3{font-size:17px}
-    .muted{color:var(--tg-theme-hint-color,#657183)}
-    .card{background:var(--tg-theme-secondary-bg-color,#fff);border:1px solid #8883;border-radius:17px;padding:17px;margin:15px 0;box-shadow:0 2px 8px #0000000a}
-    .badge{border-radius:999px;padding:5px 10px;background:#dfddff;color:#39209d;font-size:12px;white-space:nowrap}
-    .highlight{font-weight:750;padding:12px;margin:14px 0;border-radius:12px;border:1px solid #8884}
-    .field{margin:12px 0;line-height:1.5}.field strong{display:block;margin-bottom:4px}
-    .btn{font:inherit;font-weight:650;cursor:pointer;padding:10px 15px;border:0;border-radius:11px;color:var(--tg-theme-button-text-color,#fff);background:var(--tg-theme-button-color,#2674d9)}
-    .hidden{display:none!important}a{color:var(--tg-theme-link-color,#2674d9);overflow-wrap:anywhere}
-    .note{font-size:13px;line-height:1.6}.fact{padding-bottom:10px;border-bottom:1px solid #8883}
-    #adhuriFab{position:fixed;right:17px;bottom:calc(18px + env(safe-area-inset-bottom));z-index:100;width:64px;height:64px;border-radius:50%;font-size:29px;border:2px solid #fff8;background:linear-gradient(125deg,#7c3aed,#2563eb);color:#fff;box-shadow:0 10px 26px #0005;cursor:pointer}
-    #adhuriGuide{position:fixed;right:13px;bottom:calc(93px + env(safe-area-inset-bottom));width:min(360px,calc(100vw - 26px));z-index:100;background:var(--tg-theme-bg-color,#fff);color:inherit;border-radius:18px;padding:18px;border:1px solid #8886;box-shadow:0 14px 35px #0006}
-    #adhuriGuide h2{margin-right:35px}
-    #guideClose{float:right;border:1px solid #8886;border-radius:8px;padding:6px 10px;background:transparent;color:inherit;cursor:pointer}
-    #adhuriGuide p{line-height:1.65}#backToTelegram{width:100%}
-    @media(max-width:480px){main{padding:12px 12px 100px}.card{padding:14px}header{align-items:start}.badge{font-size:11px}#adhuriFab{right:13px}}
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>দৈনিক জ্ঞানবার্তা</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color-scheme:light dark}
+*{box-sizing:border-box}body{margin:0;min-height:100dvh;background:var(--tg-theme-bg-color,#f6f7fb);color:var(--tg-theme-text-color,#18202b)}
+main{max-width:760px;margin:0 auto;padding:16px 13px 75px}
+header{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin:8px 0 22px}
+h1{font-size:24px;margin:0 0 6px;line-height:1.35}h2{font-size:20px;margin:0 0 12px}h3{font-size:18px;margin:0 0 10px}
+.muted{color:var(--tg-theme-hint-color,#6d7483)}.card{background:var(--tg-theme-secondary-bg-color,#fff);padding:17px;margin:14px 0;border:1px solid #8883;border-radius:17px}
+.badge{background:#e2dcfd;color:#42228e;border-radius:999px;padding:6px 10px;font-size:12px;white-space:nowrap}
+.highlight{font-weight:700;padding:12px;margin:12px 0;border:1px solid #8885;border-radius:10px}
+.field{margin:13px 0;line-height:1.55}.field strong{display:block;margin-bottom:3px}
+.btn{border:0;border-radius:10px;padding:11px 14px;background:var(--tg-theme-button-color,#2869c8);color:var(--tg-theme-button-text-color,#fff);font:inherit;font-weight:650;cursor:pointer}
+.btn:focus-visible,a:focus-visible{outline:3px solid var(--tg-theme-link-color,#2869c8);outline-offset:2px}
+.hidden{display:none!important}a{color:var(--tg-theme-link-color,#2869c8);overflow-wrap:anywhere}
+.note{font-size:13px;line-height:1.55}.fact{border-bottom:1px solid #8883;padding:0 0 12px;margin-bottom:12px;line-height:1.55}
+@media(max-width:500px){main{padding:12px 12px 64px}.card{padding:14px}h1{font-size:21px}.badge{font-size:11px}}
+</style>
 </head>
 <body>
-  <main>
-    <header>
-      <div><h1>Daily AI Briefing</h1><div class="muted" id="date">Loading briefing…</div></div>
-      <span class="badge">Bangladesh · Daily</span>
-    </header>
-    <div id="loading" class="card">Briefing লোড হচ্ছে…</div>
-    <div id="app" class="hidden">
-      <section class="card">
-        <h2>💡 Business Idea</h2>
-        <h3 id="businessTitle"></h3>
-        <p id="businessOverview"></p>
-        <div id="businessMeta" class="muted"></div>
-        <div class="highlight" id="startupCost"></div>
-        <div class="highlight" id="monthlyRoi"></div>
-        <p class="note muted">ROI একটি অনুমানভিত্তিক মাসিক হিসাব, প্রকৃত লাভ বা ব্যবসার সফলতার নিশ্চয়তা নয়।</p>
-        <button id="interested" class="btn">বিস্তারিত ব্যবসার পরিকল্পনা</button>
-        <div id="fullPlan" class="hidden"></div>
-      </section>
-      <section class="card">
-        <h2>🔬 IT / Computing Research Paper</h2>
-        <h3 id="paperTitle"></h3>
-        <p id="paperOverview"></p>
-        <div id="paperFindings"></div>
-        <p class="note muted" id="paperMeta"></p>
-        <a id="paperLink" target="_blank" rel="noopener noreferrer">মূল গবেষণাপত্র দেখুন</a>
-      </section>
-      <section class="card">
-        <h2>✨ Two Interesting Facts</h2>
-        <div id="facts"></div>
-      </section>
-      <p class="note muted" id="verification"></p>
-    </div>
-  </main>
-  <button type="button" id="adhuriFab" aria-label="Adhuri Telegram chat খুলুন" aria-expanded="false" aria-controls="adhuriGuide">💜</button>
-  <section id="adhuriGuide" class="hidden" role="dialog" aria-label="Adhuri">
-    <button id="guideClose" aria-label="বন্ধ করুন">✕</button>
-    <h2>💜 Adhuri</h2>
-    <p>Adhuri এখন Telegram Bot-এর <strong>নিজস্ব inbox-এ</strong> প্রশ্নের উত্তর দেয়। একটি English word লিখলে বাংলা অর্থ, Parts of Speech, Grammatical Function, বাস্তব ব্যবহার ও বাক্যের প্রসঙ্গ—এই ক্রমে উত্তর পাবে। অন্য প্রশ্নের উত্তরও বাংলায় পাবে।</p>
-    <p class="note muted">GitHub Actions-এর polling ব্যবস্থায় উত্তর আসতে কিছুটা সময় লাগতে পারে।</p>
-    <button class="btn" id="backToTelegram">Telegram Chat-এ ফিরে যাও</button>
-  </section>
-  <script>
-    const $=id=>document.getElementById(id);
-    const tg=window.Telegram?.WebApp;tg?.ready();tg?.expand();
-    let briefing=null;
-    const el=(tag,value)=>{const n=document.createElement(tag);n.textContent=value??'';return n};
-    const money=n=>'৳'+Number(n).toLocaleString('en-BD',{maximumFractionDigits:0});
-    function field(parent,title,value){const row=el('div','');row.className='field';row.append(el('strong',title),el('div',String(value??'তথ্য দেওয়া হয়নি')));parent.append(row)}
-    function linkHTTPS(a,url){if(typeof url!=='string'||!url.startsWith('https://')){a.removeAttribute('href');return}try{const parsed=new URL(url);if(parsed.protocol==='https:')a.href=parsed.href}catch{}}
-    function render(){
-      const b=briefing.business_idea||{},p=briefing.research_paper||{},summary=p.summary||{};
-      $('loading').classList.add('hidden');$('app').classList.remove('hidden');
-      $('date').textContent=briefing.date||'Latest briefing';
-      $('businessTitle').textContent=b.title||'Business idea';
-      $('businessOverview').textContent=b.overview||'';
-      $('businessMeta').textContent='Target: '+(b.target_customer||'Not specified')+' · Revenue: '+(b.revenue_model||'Not specified');
-      $('startupCost').textContent=Number.isFinite(b.startup_cost_bdt_min)&&Number.isFinite(b.startup_cost_bdt_max)
-        ?'আনুমানিক প্রাথমিক বিনিয়োগ: '+money(b.startup_cost_bdt_min)+' – '+money(b.startup_cost_bdt_max)
-        :'প্রাথমিক বিনিয়োগের হিসাব পাওয়া যায়নি';
-      $('monthlyRoi').textContent=Number.isFinite(b.illustrative_monthly_roi_percent)
-        ?'মাসিক সম্ভাব্য ROI (মডেলভিত্তিক): '+b.illustrative_monthly_roi_percent.toFixed(1)+'%':
-        'মাসিক ROI-এর নির্ভরযোগ্য আনুমানিক হিসাব পাওয়া যায়নি';
-      $('interested').onclick=()=>{
-        const target=$('fullPlan');target.classList.toggle('hidden');target.replaceChildren();
-        if(target.classList.contains('hidden'))return;
-        for(const [label,key] of [['Problem','problem'],['চাহিদার সম্ভাব্য কারণ','demand_reason'],['প্রথম ধাপ','first_step'],['যাচাই করার উপায়','validation_plan'],['ঝুঁকি','risks'],['সতর্কতা','confidence_note']])field(target,label,b[key]);
-        if(Array.isArray(b.startup_cost_breakdown)){
-          target.append(el('h3','প্রাথমিক বিনিয়োগের বিবরণ'));
-          for(const item of b.startup_cost_breakdown){if(item&&typeof item.item==='string'&&Number.isFinite(item.estimated_bdt))field(target,item.item,money(item.estimated_bdt))}
-        }
-        if(Number.isFinite(b.illustrative_monthly_revenue_bdt))field(target,'মাসিক আনুমানিক আয়',money(b.illustrative_monthly_revenue_bdt));
-        if(Number.isFinite(b.illustrative_monthly_expenses_bdt))field(target,'মাসিক আনুমানিক খরচ',money(b.illustrative_monthly_expenses_bdt));
-        if(Number.isFinite(b.illustrative_monthly_net_profit_bdt))field(target,'মাসিক আনুমানিক নিট লাভ/ক্ষতি',money(b.illustrative_monthly_net_profit_bdt));
-        field(target,'ROI-সংক্রান্ত সতর্কতা',b.roi_disclaimer||'আনুমানিক হিসাব; সত্যিকারের ফল ভিন্ন হতে পারে');
-      };
-      $('paperTitle').textContent=p.title||'';
-      $('paperOverview').textContent=summary.overview||'';
-      $('paperFindings').replaceChildren();
-      for(const item of (Array.isArray(summary.key_findings)?summary.key_findings:[]))$('paperFindings').append(el('p','• '+item));
-      $('paperMeta').textContent='Field: '+(summary.field||'Computing')+' · Published: '+(p.published||'Unknown');
-      linkHTTPS($('paperLink'),p.url);
-      $('facts').replaceChildren();
-      (Array.isArray(briefing.facts)?briefing.facts:[]).forEach((item,i)=>{
-        const card=el('div','');card.className='fact';
-        field(card,i===0?'প্রাত্যহিক জীবনের তথ্য':'আকর্ষণীয় তথ্য',item.claim);
-        card.append(el('p',String(item.explanation||'')));
-        if(typeof item.source_url==='string'&&item.source_url.startsWith('https://')){
-          const a=el('a','উৎস দেখুন');linkHTTPS(a,item.source_url);card.append(a)
-        }
-        $('facts').append(card);
-      });
-      $('verification').textContent=briefing.verification_note||'AI-generated তথ্য গুরুত্বপূর্ণ সিদ্ধান্তের আগে যাচাই করো।';
-    }
-    $('adhuriFab').onclick=()=>{$('adhuriGuide').classList.toggle('hidden');$('adhuriFab').setAttribute('aria-expanded',String(!$('adhuriGuide').classList.contains('hidden')))};
-    $('guideClose').onclick=()=>$('adhuriGuide').classList.add('hidden');
-    $('backToTelegram').onclick=()=>{if(typeof tg?.close==='function')tg.close();else $('adhuriGuide').querySelector('p').textContent='Telegram-এ যে Bot প্রতিদিন SMS পাঠায়, তার inbox খুলে সরাসরি প্রশ্ন লিখো।'};
-    fetch('./content.json?t='+Date.now()).then(r=>{if(!r.ok)throw Error('আজকের তথ্য পাওয়া যায়নি');return r.json()}).then(d=>{briefing=d;render()}).catch(e=>$('loading').textContent='Briefing লোড করা যায়নি: '+e.message);
-  </script>
+<main>
+<header><div><h1>দৈনিক জ্ঞানবার্তা</h1><div id="date" class="muted">সর্বশেষ তথ্য আনা হচ্ছে…</div></div><span class="badge">প্রতিদিন · বাংলাদেশ</span></header>
+<div id="loading" class="card">দৈনিক তথ্য লোড হচ্ছে…</div>
+<div id="app" class="hidden">
+<section class="card">
+<h2>💡 আজকের ব্যবসার ধারণা</h2>
+<h3 id="businessTitle"></h3>
+<p id="businessOverview"></p>
+<p id="businessMeta" class="muted"></p>
+<div class="highlight" id="startupCost"></div>
+<div class="highlight" id="monthlyRoi"></div>
+<p class="note muted">লাভের হারটি অনুমানভিত্তিক। আসল আয় ও ব্যয় ভিন্ন হতে পারে এবং লাভের নিশ্চয়তা নেই।</p>
+<button class="btn" type="button" id="interested" aria-expanded="false">বিস্তারিত ব্যবসার পরিকল্পনা দেখুন</button>
+<div id="fullPlan" class="hidden"></div>
+</section>
+<section class="card">
+<h2>🔬 আজকের তথ্যপ্রযুক্তি গবেষণা</h2>
+<h3 id="paperTitle"></h3>
+<p id="paperOverview"></p>
+<div id="paperFindings"></div>
+<p id="paperMeta" class="note muted"></p>
+<a id="paperLink" target="_blank" rel="noopener noreferrer">মূল গবেষণাপত্র দেখুন</a>
+</section>
+<section class="card"><h2>✨ আজকের দুটি আকর্ষণীয় তথ্য</h2><div id="facts"></div></section>
+<p id="verification" class="note muted"></p>
+</div>
+</main>
+<script>
+const get=id=>document.getElementById(id);
+const tg=window.Telegram?.WebApp;
+tg?.ready();tg?.expand();
+const div=(tag,text)=>{const el=document.createElement(tag);el.textContent=text??'';return el};
+const digits="০১২৩৪৫৬৭৮৯";
+const toBangla=n=>String(n).replace(/[0-9]/g,d=>digits[Number(d)]);
+const money=n=>"৳"+toBangla(Number(n).toLocaleString("en-US",{maximumFractionDigits:0}));
+function addField(parent,title,value){
+ const row=div("div","");row.className="field";
+ row.append(div("strong",title),div("div",String(value??"তথ্য পাওয়া যায়নি")));
+ parent.append(row);
+}
+function setSecureLink(anchor,url){
+ anchor.removeAttribute("href");
+ if(typeof url!=="string")return;
+ try{const x=new URL(url);if(x.protocol==="https:")anchor.href=x.href}catch{}
+}
+function render(data){
+ const b=data.business_idea||{},paper=data.research_paper||{},summary=paper.summary||{};
+ get("date").textContent=data.date_bn||"সর্বশেষ প্রকাশিত তথ্য";
+ get("businessTitle").textContent=b.title||"ব্যবসার তথ্য পাওয়া যায়নি";
+ get("businessOverview").textContent=b.overview||"";
+ get("businessMeta").textContent="সম্ভাব্য ক্রেতা: "+(b.target_customer||"তথ্য নেই")+" · আয়ের উৎস: "+(b.revenue_model||"তথ্য নেই");
+ get("startupCost").textContent=Number.isFinite(b.startup_cost_bdt_min)&&Number.isFinite(b.startup_cost_bdt_max)
+    ?"আনুমানিক প্রাথমিক বিনিয়োগ: "+money(b.startup_cost_bdt_min)+" থেকে "+money(b.startup_cost_bdt_max)
+    :"বিনিয়োগের আনুমানিক হিসাব পাওয়া যায়নি";
+ get("monthlyRoi").textContent=Number.isFinite(b.illustrative_monthly_roi_percent)
+    ?"আনুমানিক মাসিক লাভের হার: "+toBangla(b.illustrative_monthly_roi_percent.toFixed(1))+"%"
+    :"মাসিক লাভের হারের হিসাব পাওয়া যায়নি";
+ get("interested").onclick=()=>{
+   const target=get("fullPlan");target.classList.toggle("hidden");
+   get("interested").setAttribute("aria-expanded",String(!target.classList.contains("hidden")));
+   target.replaceChildren();if(target.classList.contains("hidden"))return;
+   for(const [title,key] of [["সমস্যা ও প্রয়োজন","problem"],["চাহিদার সম্ভাব্য কারণ","demand_reason"],["কাজ শুরুর প্রথম ধাপ","first_step"],["ছোট পরিসরে যাচাই","validation_plan"],["সম্ভাব্য ঝুঁকি","risks"],["বিশেষ সতর্কতা","confidence_note"]]){
+     addField(target,title,b[key]);
+   }
+   if(Array.isArray(b.startup_cost_breakdown)){
+     target.append(div("h3","প্রাথমিক বিনিয়োগের খাতসমূহ"));
+     b.startup_cost_breakdown.forEach(item=>{
+       if(item&&typeof item.item==="string"&&Number.isFinite(item.estimated_bdt))addField(target,item.item,money(item.estimated_bdt));
+     });
+   }
+   if(Number.isFinite(b.illustrative_monthly_revenue_bdt))addField(target,"আনুমানিক মাসিক আয়",money(b.illustrative_monthly_revenue_bdt));
+   if(Number.isFinite(b.illustrative_monthly_expenses_bdt))addField(target,"আনুমানিক মাসিক খরচ",money(b.illustrative_monthly_expenses_bdt));
+   if(Number.isFinite(b.illustrative_monthly_net_profit_bdt))addField(target,"আনুমানিক মাসিক নিট লাভ বা ক্ষতি",money(b.illustrative_monthly_net_profit_bdt));
+   addField(target,"হিসাব সম্পর্কে সতর্কতা",b.roi_disclaimer||"এটি অনুমানভিত্তিক হিসাব, লাভের নিশ্চয়তা নয়।");
+ };
+ get("paperTitle").textContent=paper.title_bn||summary.title_bn||"গবেষণার বাংলা শিরোনাম পাওয়া যায়নি";
+ get("paperOverview").textContent=summary.overview||"";
+ get("paperFindings").replaceChildren();
+ for(const finding of Array.isArray(summary.key_findings)?summary.key_findings:[])get("paperFindings").append(div("p","• "+finding));
+ get("paperMeta").textContent="গবেষণার ক্ষেত্র: "+(summary.field||"কম্পিউটার বিজ্ঞান")+" · প্রকাশের তারিখ: "+toBangla(paper.published||"অনির্দিষ্ট");
+ setSecureLink(get("paperLink"),paper.url);
+ get("facts").replaceChildren();
+ for(const [i,fact] of (Array.isArray(data.facts)?data.facts:[]).entries()){
+   const row=div("div","");row.className="fact";
+   addField(row,i===0?"১. প্রাত্যহিক জীবনের তথ্য":"২. অন্যান্য আকর্ষণীয় তথ্য",fact.claim);
+   row.append(div("p",fact.explanation||""));
+   if(fact.source_url){
+     const link=div("a","উৎস দেখুন");setSecureLink(link,fact.source_url);if(link.hasAttribute("href")){link.target="_blank";link.rel="noopener noreferrer";row.append(link)}
+   }
+   get("facts").append(row);
+ }
+ get("verification").textContent=data.verification_note||"গুরুত্বপূর্ণ তথ্য মূল উৎস থেকে যাচাই করুন।";
+ get("loading").classList.add("hidden");get("app").classList.remove("hidden");
+}
+fetch("./content.json?t="+Date.now()).then(r=>{if(!r.ok)throw Error("দৈনিক তথ্য পাওয়া যায়নি");return r.json()})
+ .then(render).catch(e=>get("loading").textContent="দৈনিক তথ্য লোড করা যায়নি: "+e.message);
+</script>
 </body>
 </html>
