@@ -1,8 +1,6 @@
 name: Publish updated briefing interface
 on:
-  push:
-    branches: [main]
-    paths: ['.github/workflows/publish-ui.yml', 'web/index.html']
+  workflow_dispatch:
 permissions:
   contents: read
 concurrency:
