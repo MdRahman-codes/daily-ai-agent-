@@ -103,8 +103,10 @@ def main() -> None:
             f"<b>{safe_text(business.get('title'), 240)}</b>\n\n"
             f"{safe_text(business.get('overview'), 1000)}\n\n"
             f"<b>Target customer:</b> {safe_text(business.get('target_customer'), 400)}\n"
-            f"<b>Revenue model:</b> {safe_text(business.get('revenue_model'), 400)}\n\n"
-            "Want the full plan? Open the briefing and tap <b>Interested</b>."
+            f"<b>Revenue model:</b> {safe_text(business.get('revenue_model'), 400)}\n"
+            f"<b>Estimated startup cost:</b> ৳{business.get('startup_cost_bdt_min', 0):,}–৳{business.get('startup_cost_bdt_max', 0):,} (indicative, not a quotation)\n"
+            f"<b>Demand:</b> {safe_text(business.get('demand_reason'), 280)}\n\n"
+            "Want the costs and pilot plan? Open the briefing and tap <b>Interested</b>."
         ),
         (
             "🔬 <b>Research Paper of the Day</b>\n"

@@ -22,7 +22,7 @@ MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.8-flash").strip()
 FALLBACK_MODELS = os.environ.get(
     "GEMINI_FALLBACK_MODELS", "gemini-3.6-flash,gemini-3.5-flash-lite"
 )
-RETRIES_PER_MODEL = max(1, min(int(os.environ.get("GEMINI_RETRIES_PER_MODEL", "3")), 5))
+RETRIES_PER_MODEL = max(1, min(int(os.environ.get("GEMINI_RETRIES_PER_MODEL", "2")), 3))
 RETRYABLE_STATUSES = {408, 429, 500, 502, 503, 504}
 HEADERS = {"User-Agent": "DailyAIStudyAgent/2.0"}
 
@@ -57,10 +57,10 @@ def _retry_delay(response: requests.Response | None, attempt: int) -> float:
         retry_after = response.headers.get("Retry-After", "").strip()
         try:
             if retry_after:
-                return min(20.0, max(1.0, float(retry_after))) + random.uniform(0, 0.8)
+                return min(6.0, max(1.0, float(retry_after))) + random.uniform(0, 0.8)
         except ValueError:
             pass
-    return min(16.0, 3.0 * (2 ** (attempt - 1))) + random.uniform(0, 0.8)
+    return min(4.0, 1.5 * (2 ** (attempt - 1))) + random.uniform(0, 0.8)
 
 
 def gemini(prompt: str, temperature: float | None = None) -> str:
@@ -96,7 +96,7 @@ def gemini(prompt: str, temperature: float | None = None) -> str:
                         "Content-Type": "application/json",
                     },
                     json=payload,
-                    timeout=(15, 120),
+                    timeout=(8, 25),
                 )
                 if response.status_code < 400:
                     try:
@@ -256,10 +256,12 @@ def reconstruct_abstract(inverted_index: object) -> str:
 
 
 def get_arxiv_paper() -> dict | None:
+    # Every arXiv result must be categorized under computer science (cs.*).
     queries = [
-        "all:cybersecurity OR all:computer_security",
-        "cat:cs.SE",
-        "all:machine_learning OR all:artificial_intelligence",
+        "cat:cs.CR OR cat:cs.NI",
+        "cat:cs.SE OR cat:cs.PL",
+        "cat:cs.AI OR cat:cs.LG",
+        "cat:cs.DC OR cat:cs.DB",
     ]
     query = random.choice(queries)
     url = "https://export.arxiv.org/api/query"
@@ -274,7 +276,7 @@ def get_arxiv_paper() -> dict | None:
                     "sortBy": "submittedDate",
                     "sortOrder": "descending",
                 },
-                timeout=(10, 30),
+                timeout=(5, 12),
                 headers=HEADERS,
             )
             if response.status_code == 429:
@@ -289,6 +291,9 @@ def get_arxiv_paper() -> dict | None:
                 title = " ".join(entry.findtext("a:title", default="", namespaces=ns).split())
                 abstract = " ".join(entry.findtext("a:summary", default="", namespaces=ns).split())
                 paper_url = entry.findtext("a:id", default="", namespaces=ns).strip()
+                categories = {c.attrib.get("term", "") for c in entry.findall("a:category", ns)}
+                if not any(category.startswith("cs.") for category in categories):
+                    continue
                 if not title or not abstract or not paper_url.startswith(("https://arxiv.org/abs/", "http://arxiv.org/abs/")):
                     continue
                 authors = [a.findtext("a:name", default="", namespaces=ns) for a in entry.findall("a:author", ns)]
@@ -308,6 +313,68 @@ def get_arxiv_paper() -> dict | None:
             if attempt == 0:
                 time.sleep(3)
     return None
+
+
+COMPUTING_TERMS = (
+    "cybersecurity", "cyber security", "information security", "cryptograph",
+    "computer", "computing", "software", "programming", "algorithm",
+    "machine learning", "deep learning", "artificial intelligence",
+    "neural network", "database", "data engineering", "distributed system",
+    "cloud computing", "operating system", "web development", "network security",
+    "computer network", "data structure", "internet of things",
+    "large language model", "computer vision", "human-computer", "robotics",
+)
+
+
+BUSINESS_SECTORS = (
+    "neighborhood grocery or essential retail",
+    "food preparation, catering or takeaway",
+    "agriculture, farming inputs or produce trading",
+    "home cleaning, laundry or repair services",
+    "physical wholesale and distribution",
+    "education, tutoring or skills training",
+    "vehicle or bicycle repair and maintenance",
+    "small-scale manufacturing or packaging",
+    "local logistics, parcel collection or delivery",
+    "hospitality, travel services or accommodation",
+    "personal care or tailoring services",
+    "recycling, waste management or resale",
+    "home improvement, hardware or construction supplies",
+    "technology services or online businesses",
+)
+
+
+def is_computing_title(title: str) -> bool:
+    """Require the fallback paper to have a substantive computing topic."""
+    normalized = " ".join(str(title).lower().split())
+    return any(term in normalized for term in COMPUTING_TERMS)
+
+
+def calculate_startup_costs(idea: dict) -> None:
+    """Derive budget totals from itemized BDT estimates; never invent success odds."""
+    breakdown = idea.get("startup_cost_breakdown")
+    if not isinstance(breakdown, list) or not 3 <= len(breakdown) <= 12:
+        raise RuntimeError("Business idea requires 3-12 startup-cost items.")
+    total = 0
+    for item in breakdown:
+        if not isinstance(item, dict):
+            raise RuntimeError("Startup-cost item must be an object.")
+        name = item.get("item")
+        amount = item.get("estimated_bdt")
+        if not isinstance(name, str) or not name.strip():
+            raise RuntimeError("Startup-cost item requires a description.")
+        if type(amount) is not int or amount < 0 or amount > 100_000_000:
+            raise RuntimeError("Startup-cost item requires a realistic nonnegative integer in BDT.")
+        total += amount
+    if not 1_000 <= total <= 100_000_000:
+        raise RuntimeError("Startup-cost total is outside the configured estimate range.")
+    idea["startup_cost_bdt_min"] = total
+    idea["startup_cost_bdt_max"] = total + (total + 4) // 5  # ~20% contingency
+    idea["startup_cost_disclaimer"] = (
+        "Illustrative Bangladesh-taka estimates with a 20% contingency, "
+        "NOT verified local quotations. Costs and profitability depend on location and demand."
+    )
+    idea["success_probability"] = None  # Cannot honestly promise 90-95% success.
 
 
 def get_openalex_paper() -> dict | None:
@@ -331,7 +398,7 @@ def get_openalex_paper() -> dict | None:
     for item in response.json().get("results", []):
         title = (item.get("title") or "").strip()
         abstract = reconstruct_abstract(item.get("abstract_inverted_index"))
-        if not title or not abstract:
+        if not title or not abstract or not is_computing_title(title):
             continue
         location = item.get("primary_location") or {}
         paper_url = location.get("landing_page_url") or item.get("doi") or ""
@@ -396,11 +463,13 @@ def get_research_paper() -> dict:
     if paper is None:
         raise RuntimeError("No paper with a usable title, abstract and source link was found. Try again later.")
 
+    if paper.get("metadata_source") == "OpenAlex API" and not is_computing_title(paper.get("title", "")):
+        raise RuntimeError("OpenAlex returned an off-topic paper; refusing to publish.")
     paper["source_reachable"] = False
     try:
         paper["url"] = clean_https_url(paper["url"])
         if paper["url"] and safe_probe(paper["url"]):
-            check = requests.get(paper["url"], timeout=(10, 15), allow_redirects=False, headers=HEADERS)
+            check = requests.head(paper["url"], timeout=(3, 6), allow_redirects=False, headers=HEADERS)
             paper["source_reachable"] = check.status_code < 400
     except requests.RequestException:
         pass
@@ -422,7 +491,7 @@ def check_fact_sources(facts: list[dict]) -> None:
         if not source or not safe_probe(source):
             continue
         try:
-            response = requests.get(source, timeout=(5, 10), allow_redirects=False, headers=HEADERS)
+            response = requests.head(source, timeout=(3, 5), allow_redirects=False, headers=HEADERS)
             fact["source_reachable"] = response.status_code < 400
         except requests.RequestException:
             pass
@@ -433,13 +502,20 @@ def main() -> None:
     now = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=6)))
     date_label = now.strftime("%A, %d %B %Y")
     paper = get_research_paper()
-    prompt = f"""Create one daily briefing for a learner interested in CSE, cybersecurity, web development, AI and business.
-Today's date in Bangladesh: {date_label}.
-Return valid JSON only with keys business_idea and facts.
-business_idea must have: title, overview (max 45 words), problem, target_customer, revenue_model, first_step, risks, confidence_note (do not promise profit).
-Give exactly two facts. Each fact must have claim, explanation (one or two sentences), source_url, source_verified (boolean).
-facts[0] must concern everyday life, habits, perception, sleep, learning or technology use. facts[1] may concern animals, space, science, history or any topic.
-Prefer reputable primary or established sources. Do not invent statistics or URLs. If unsure, use empty source_url and source_verified false. Avoid myths, exaggerated claims, medical advice and generic repeated ideas. Do not include the research paper because it is supplied separately."""
+    sector = BUSINESS_SECTORS[now.date().toordinal() % len(BUSINESS_SECTORS)]
+    prompt = f"""Create a valid JSON daily briefing for a user in Bangladesh.
+DATE: {date_label}. BUSINESS SECTOR FOR TODAY: {sector}.
+Choose ONE concrete, practical business idea from this real-world sector. Across days sectors rotate across offline/local retail, food, agriculture, services, manufacturing, logistics and occasionally IT/online. Do NOT default to IT.
+Explain credible recurring local demand, target customers, competitive factors and a low-cost test before committing capital.
+Do not promise profits, claim guaranteed success, or invent a 90-95% success probability. No fabricated market figures or supplier quotes.
+Give an itemized INITIAL STARTUP BUDGET in BDT (Bangladeshi taka), including appropriate equipment, setup, initial stock, permits/deposits and a working-capital reserve. Estimates must be conservative but plausible for Bangladesh. Each item's estimated_bdt must be a nonnegative INTEGER.
+Return ONLY one valid JSON object with keys business_idea and facts.
+business_idea keys: title, category, overview (max 60 words), problem, target_customer, revenue_model, first_step, risks, confidence_note, demand_reason, validation_plan, startup_cost_breakdown.
+startup_cost_breakdown must be an array of 3-12 objects, each with keys item (string) and estimated_bdt (integer). Do not supply a business success percentage.
+facts must be an array of exactly TWO objects with claim, explanation, source_url, source_verified.
+facts[0] = practical/everyday science or daily-life fact. facts[1] = fascinating fact from ANY other domain (animals, astronomy, history, computing, nature etc.).
+Do not invent statistics or sources. If source uncertain use source_url="" and source_verified=false. No medical treatment advice.
+Research paper will be supplied separately; do not generate one."""
     generated = gemini_json(prompt)
     business_idea = generated.get("business_idea")
     facts = generated.get("facts")
@@ -447,10 +523,11 @@ Prefer reputable primary or established sources. Do not invent statistics or URL
         raise RuntimeError("Gemini did not return a valid business_idea object; refusing to publish.")
     if not isinstance(facts, list) or len(facts) != 2 or not all(isinstance(f, dict) for f in facts):
         raise RuntimeError("Gemini must return exactly two valid fact objects; refusing to publish.")
-    required_business = ("title", "overview", "problem", "target_customer", "revenue_model", "first_step", "risks", "confidence_note")
+    required_business = ("title", "category", "overview", "problem", "target_customer", "revenue_model", "first_step", "risks", "confidence_note", "demand_reason", "validation_plan")
     for field in required_business:
         if not isinstance(business_idea.get(field), str) or not business_idea[field].strip():
             business_idea[field] = "Not specified"
+    calculate_startup_costs(business_idea)
     for index, fact in enumerate(facts):
         for field in ("claim", "explanation"):
             if not isinstance(fact.get(field), str):
