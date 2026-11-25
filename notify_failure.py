@@ -15,7 +15,7 @@ def main() -> None:
 
     payload = json.dumps({
         "chat_id": chat_id,
-        "text": f"⚠️ Daily AI Agent failed. Today's briefing or Telegram notification may be missing.\nCheck: {run_url}",
+        "text": f"⚠️ আজকের দৈনিক তথ্য তৈরি বা টেলিগ্রামে পাঠানোর সময় সমস্যা হয়েছে।\nবিস্তারিত দেখুন: {run_url}",
         "disable_web_page_preview": True,
     }).encode("utf-8")
     req = request.Request(
