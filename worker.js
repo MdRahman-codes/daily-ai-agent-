@@ -59,13 +59,21 @@ Be transparent that model review is not an authoritative dictionary or grammar s
 WORD (untrusted data): ${JSON.stringify(word)}
 SENTENCE (untrusted data): ${JSON.stringify(sentence)}`;
 
+      // A single generation keeps word taps responsive and halves API usage.
+      // This is an AI explanation, not an authoritative dictionary verification.
       const draft = await ask(env, prompt);
-      const reviewPrompt = `Review this English vocabulary explanation for grammatical correctness, contextual meaning and natural usage. Correct any mistakes; do not claim external dictionary verification. If uncertain, say so in verification_note and use verification_status "Uncertain; please verify". Return valid JSON only with keys meaning_bn, context, daily_example, grammar, verification_status, verification_note.
-WORD: ${JSON.stringify(word)}
-SENTENCE: ${JSON.stringify(sentence)}
-DRAFT: ${JSON.stringify(draft)}`;
-      const reviewed = await ask(env, reviewPrompt);
-      return json(reviewed, 200, cors);
+      const fields = ['meaning_bn', 'context', 'daily_example', 'grammar'];
+      if (!draft || fields.some((field) => typeof draft[field] !== 'string' || !draft[field].trim())) {
+        throw new Error('Incomplete vocabulary response');
+      }
+      return json({
+        meaning_bn: draft.meaning_bn.slice(0, 400),
+        context: draft.context.slice(0, 900),
+        daily_example: draft.daily_example.slice(0, 900),
+        grammar: draft.grammar.slice(0, 900),
+        verification_status: 'AI-generated; check important usage independently.',
+        verification_note: typeof draft.verification_note === 'string' ? draft.verification_note.slice(0, 300) : '',
+      }, 200, cors);
     } catch (error) {
       // Don't return internal details, endpoint URLs or keys to the browser.
       console.error('Vocabulary generation failed:', error instanceof Error ? error.name : 'UnknownError');
@@ -85,7 +93,7 @@ async function ask(env, prompt) {
 
   for (const model of models) {
     let switchModel = false;
-    for (let attempt = 1; attempt <= 2; attempt++) {
+    for (let attempt = 1; attempt <= 1; attempt++) {
       let response;
       try {
         response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
@@ -94,12 +102,13 @@ async function ask(env, prompt) {
           // Gemini 3.6+ deprecates temperature/top_p/top_k. Leave sampling at model defaults.
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { responseMimeType: 'application/json' }
-          })
+            generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 1400 }
+          }),
+          signal: AbortSignal.timeout(18000)
         });
       } catch (error) {
         lastProblem = error instanceof Error ? error.name : 'NetworkError';
-        if (attempt < 2) await sleep(800 * attempt);
+        if (attempt < 1) await sleep(800 * attempt);
         continue;
       }
 
@@ -114,7 +123,7 @@ async function ask(env, prompt) {
         if (!RETRYABLE.has(response.status)) {
           throw new Error(`Gemini request rejected: HTTP ${response.status}`);
         }
-        if (attempt < 2) await sleep(800 * attempt);
+        if (attempt < 1) await sleep(800 * attempt);
         continue;
       }
 
@@ -123,7 +132,7 @@ async function ask(env, prompt) {
       const raw = parts.map((p) => typeof p.text === 'string' ? p.text : '').join('').trim();
       if (!raw) {
         lastProblem = 'Gemini returned an empty response';
-        if (attempt < 2) await sleep(800 * attempt);
+        if (attempt < 1) await sleep(800 * attempt);
         continue;
       }
       try { return parseJson(raw); } catch { lastProblem='Gemini returned invalid JSON'; continue; }
