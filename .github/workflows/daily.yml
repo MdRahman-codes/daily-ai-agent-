@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   schedule:
     # 01:00 UTC = 07:00 Bangladesh Standard Time (UTC+6)
-    - cron: '0 1 * * *'
+    - cron: '3,11,19,27 1 * * *'
 
 permissions:
   contents: read
@@ -16,7 +16,9 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 14
+    outputs:
+      skip: ${{ steps.freshness.outputs.skip }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -26,22 +28,33 @@ jobs:
           python-version: '3.12'
           cache: 'pip'
           cache-dependency-path: requirements.txt
+      - name: Skip duplicate briefing for today's Bangladesh date
+        id: freshness
+        env:
+          BRIEFING_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/content.json
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+        run: python check_today.py
       - name: Install dependencies
+        if: steps.freshness.outputs.skip != 'true'
         run: python -m pip install --upgrade pip && pip install -r requirements.txt
       - name: Run local tests
+        if: steps.freshness.outputs.skip != 'true'
         run: python -m unittest discover -s tests -v
       - name: Generate daily briefing
+        if: steps.freshness.outputs.skip != 'true'
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GEMINI_MODEL: gemini-3.8-flash
-          GEMINI_FALLBACK_MODELS: gemini-3.6-flash,gemini-3.5-flash-lite
-          GEMINI_RETRIES_PER_MODEL: '3'
+          GEMINI_MODEL: gemini-3.6-flash
+          GEMINI_FALLBACK_MODELS: gemini-3.5-flash-lite,gemini-3.8-flash
+          GEMINI_RETRIES_PER_MODEL: '2'
         run: python generate.py
       - name: Upload GitHub Pages artifact
+        if: steps.freshness.outputs.skip != 'true'
         uses: actions/upload-pages-artifact@v3
         with:
           path: site
       - name: Upload generated content for Telegram
+        if: steps.freshness.outputs.skip != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: generated-site
@@ -51,6 +64,7 @@ jobs:
 
   deploy:
     needs: build
+    if: needs.build.outputs.skip != 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -90,3 +104,18 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           SITE_URL: ${{ needs.deploy.outputs.page_url }}
         run: python notify.py
+
+  alert-on-failure:
+    needs: [build, deploy, notify]
+    if: ${{ always() && (needs.build.result == 'failure' || needs.deploy.result == 'failure' || needs.notify.result == 'failure') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Notify Telegram about workflow failure
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GITHUB_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: python notify_failure.py

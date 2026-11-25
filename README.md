@@ -77,3 +77,16 @@ git push
 ## Important accuracy note
 
 arXiv/OpenAlex response থেকে paper metadata নেওয়া হয়; URL reachable হওয়া paper claims যাচাইয়ের সমান নয়। AI fact-review দ্বিতীয় model pass মাত্র, authoritative fact-check নয়। Important claims-এর জন্য source নিজে খুলে দেখো.
+
+
+## Reliability hardening (2026-11-26)
+
+- Invalid Gemini JSON objects receive one extra model request; invalid summaries/fact-review shape fail closed instead of silently publishing broken data.
+- A fact marked `likely inaccurate` by the secondary review is **not published**. This can cause a daily run to fail rather than send a questionable briefing. This AI review is not authoritative fact verification.
+- AI supplied URLs are never probed if they are IP literals, malformed, or outside a constrained set of reputable hosts; redirects are not followed. Source reachability is not proof of factual correctness.
+- Telegram sends retry transient 429/5xx and network errors (up to 3 attempts), and malformed HTML is never silently truncated.
+- A separate `alert-on-failure` job attempts to send a short Telegram failure message if build/deploy/notify fails. It cannot alert when GitHub itself never starts a scheduled run, or when Telegram credentials/network are unavailable.
+- The previous `?date=` mini-app link was misleading because no archive exists; the link now opens the latest briefing. Historical content still needs a storage design.
+- Pull requests get independent Python/Worker syntax checks and unit tests, without generating content or sending Telegram messages.
+
+**Outstanding manual setup:** `web/config.js` still needs a deployed Cloudflare Worker HTTPS URL, and the Worker needs a properly configured origin allowlist and real rate limiting. GitHub Actions schedule starts are best-effort and can be hours late; this PR cannot guarantee 07:00 Bangladesh-time delivery. A reliable exact-time schedule needs an external scheduler/trigger and an idempotence strategy.
