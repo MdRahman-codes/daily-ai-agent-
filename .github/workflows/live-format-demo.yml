@@ -1,4 +1,4 @@
-name: Send live-format daily briefing demo
+name: Publish Bangla daily briefing
 on:
   push:
     branches: [main]
@@ -76,7 +76,6 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          SITE_URL: https://mdrahman-codes.github.io/daily-ai-agent-
         run: python notify.py
   detect-backend-credentials:
     runs-on: ubuntu-latest
@@ -93,3 +92,5 @@ jobs:
           fi
 
 # One-time user-requested live-format resend: 2026-11-26 (Bangladesh)
+
+# একবার নতুন বাংলা সংস্করণ প্রকাশ করা হবে।
