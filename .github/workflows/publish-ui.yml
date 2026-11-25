@@ -1,0 +1,47 @@
+name: Publish updated briefing interface
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/publish-ui.yml']
+permissions:
+  contents: read
+concurrency:
+  group: daily-ai-agent-pages
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Preserve last published daily briefing
+        env:
+          PREVIOUS_URL: https://mdrahman-codes.github.io/daily-ai-agent-/content.json
+        run: |
+          mkdir -p site
+          cp web/index.html web/config.js site/
+          python - <<'PY'
+          import os, urllib.request
+          url=os.environ['PREVIOUS_URL']
+          req=urllib.request.Request(url,headers={'Cache-Control':'no-cache','User-Agent':'DailyAIStudyAgent/2.0'})
+          with urllib.request.urlopen(req,timeout=20) as response:
+              content=response.read(400000)
+          import json
+          data=json.loads(content)
+          if not isinstance(data,dict) or 'date' not in data or 'facts' not in data:
+              raise RuntimeError('Previous briefing unavailable; refusing destructive deployment')
+          with open('site/content.json','wb') as file: file.write(content)
+          print('Preserved previous briefing while publishing new frontend.')
+          PY
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - uses: actions/deploy-pages@v4
+        id: deployment
