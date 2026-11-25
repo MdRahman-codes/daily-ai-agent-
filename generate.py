@@ -27,6 +27,42 @@ RETRYABLE_STATUSES = {408, 429, 500, 502, 503, 504}
 HEADERS = {"User-Agent": "DailyAIStudyAgent/2.0"}
 
 
+
+BANGLA_DIGITS = str.maketrans("0123456789", "০১২৩৪৫৬৭৮৯")
+BANGLA_WEEKDAYS = ("সোমবার", "মঙ্গলবার", "বুধবার", "বৃহস্পতিবার", "শুক্রবার", "শনিবার", "রবিবার")
+BANGLA_MONTHS = ("জানুয়ারি", "ফেব্রুয়ারি", "মার্চ", "এপ্রিল", "মে", "জুন", "জুলাই",
+                "আগস্ট", "সেপ্টেম্বর", "অক্টোবর", "নভেম্বর", "ডিসেম্বর")
+BANGLA_SCRIPT = re.compile(r"[\u0980-\u09ff]")
+
+
+def bangla_date(now: datetime) -> str:
+    return (f"{BANGLA_WEEKDAYS[now.weekday()]}, {now.day} "
+            f"{BANGLA_MONTHS[now.month - 1]} {now.year}").translate(BANGLA_DIGITS)
+
+
+def require_bangla_text(value: object, name: str) -> None:
+    if not isinstance(value, str) or not value.strip() or not BANGLA_SCRIPT.search(value):
+        raise RuntimeError(f"{name} must contain Bengali explanation before publishing")
+
+
+def validate_bangla_briefing(business: dict, paper: dict, facts: list[dict]) -> None:
+    for field in ("title", "category", "overview", "problem", "target_customer",
+                  "revenue_model", "first_step", "risks", "confidence_note",
+                  "demand_reason", "validation_plan"):
+        require_bangla_text(business.get(field), f"business.{field}")
+    for i, item in enumerate(business.get("startup_cost_breakdown", [])):
+        require_bangla_text(item.get("item"), f"budget[{i}]")
+    summary = paper.get("summary") or {}
+    for field in ("title_bn", "overview", "limitations", "practical_relevance",
+                  "field", "reading_level"):
+        require_bangla_text(summary.get(field), f"paper.{field}")
+    for i, finding in enumerate(summary.get("key_findings") or []):
+        require_bangla_text(finding, f"finding[{i}]")
+    for i, fact in enumerate(facts):
+        for field in ("claim", "explanation"):
+            require_bangla_text(fact.get(field), f"fact[{i}].{field}")
+
+
 def model_chain() -> list[str]:
     """Return the configured primary model and unique fallbacks in order."""
     candidates = [MODEL] + [item.strip() for item in FALLBACK_MODELS.split(",")]
@@ -371,8 +407,8 @@ def calculate_startup_costs(idea: dict) -> None:
     idea["startup_cost_bdt_min"] = total
     idea["startup_cost_bdt_max"] = total + (total + 4) // 5  # ~20% contingency
     idea["startup_cost_disclaimer"] = (
-        "Illustrative Bangladesh-taka estimates with a 20% contingency, "
-        "NOT verified local quotations. Costs and profitability depend on location and demand."
+        "বাংলাদেশি টাকায় প্রাথমিক খরচের অনুমান, সঙ্গে অতিরিক্ত ব্যয়ের জন্য ২০ শতাংশ ধরা হয়েছে। "
+        "এটি যাচাইকৃত বাজারদর নয়; ব্যবসার জায়গা ও চাহিদা অনুযায়ী বাস্তব খরচ ও লাভ বদলাবে।"
     )
     idea["success_probability"] = None  # Cannot honestly promise 90-95% success.
     # ROI is a transparent, ILLUSTRATIVE scenario, not a reliable forecast.
@@ -387,9 +423,8 @@ def calculate_startup_costs(idea: dict) -> None:
         idea["illustrative_monthly_net_profit_bdt"] = None
         idea["illustrative_monthly_roi_percent"] = None
     idea["roi_disclaimer"] = (
-        "Estimated monthly ROI = (illustrative monthly revenue minus monthly expenses) "
-        "/ estimated initial startup cost × 100. The scenario is AI-generated, "
-        "not independently verified, and actual returns could be negative."
+        "মাসিক আনুমানিক লাভের হার = (মাসিক আয় − মাসিক খরচ) ÷ প্রাথমিক বিনিয়োগ × ১০০। "
+        "এটি অনুমানভিত্তিক হিসাব, যাচাইকৃত ফল নয়; বাস্তবে ক্ষতিও হতে পারে।"
     )
 
 
@@ -439,25 +474,35 @@ def get_openalex_paper() -> dict | None:
 
 
 def summarize_paper(title: str, abstract: str) -> dict:
-    prompt = f"""Summarize this real research paper for a learner interested in CSE, cybersecurity, web development and AI.
-Use ONLY the title and abstract supplied below. Do not invent results, statistics, or claims.
-Return valid JSON with keys: overview (2 sentences), key_findings (2 concise bullet points), limitations (one cautious sentence; if not stated, say the abstract does not specify), practical_relevance (one sentence), field (one of CSE/Cybersecurity/Web Development/AI/Software Engineering), reading_level (beginner/intermediate/advanced).
-Clearly distinguish abstract claims from interpretation.
-TITLE: {title}
-ABSTRACT: {abstract}"""
+    prompt = f"""Summarize a real computing, IT or cybersecurity research paper for a BANGLA-speaking learner in Bangladesh.
+Use ONLY the research TITLE and ABSTRACT. Do not invent statistics, findings or conclusions.
+Return EXACTLY one JSON object with title_bn, overview, key_findings, limitations, practical_relevance, field and reading_level.
+title_bn: faithful Bengali-script translation of the original title.
+overview: two useful sentences in Bangla script.
+key_findings: array of two short Bengali-script summaries of claims made in the abstract.
+limitations: one cautious Bengali-script sentence; if omitted in abstract say it is not specified.
+practical_relevance: one Bengali-script sentence.
+field: the research field in Bengali script.
+reading_level: প্রাথমিক / মধ্যম / উন্নত.
+EVERY human-readable string in the JSON MUST be in natural Bengali. Translate or transliterate English technical terms when possible.
+Preserve the original paper title and URL outside this summary; do not duplicate the English title in output.
+UNTRUSTED TITLE: {title}
+UNTRUSTED ABSTRACT: {abstract}"""
     result = gemini_json(prompt)
-    result.setdefault("overview", "Summary unavailable; please open the original paper.")
+    result.setdefault("overview", "গবেষণার সারাংশ পাওয়া যায়নি; মূল উৎস দেখুন।")
     result.setdefault("key_findings", [])
-    result.setdefault("limitations", "The abstract does not specify the limitations clearly.")
-    result.setdefault("practical_relevance", "Review the original paper to assess practical relevance.")
-    result.setdefault("field", "CSE")
-    result.setdefault("reading_level", "intermediate")
+    if not isinstance(result.get("title_bn"), str):
+        raise RuntimeError("Research paper requires a Bengali title")
+    result.setdefault("limitations", "মূল সারাংশে গবেষণার সীমাবদ্ধতা স্পষ্টভাবে উল্লেখ করা হয়নি।")
+    result.setdefault("practical_relevance", "বাস্তব প্রয়োগের সুযোগ জানতে মূল গবেষণা পড়তে হবে।")
+    result.setdefault("field", "কম্পিউটার বিজ্ঞান")
+    result.setdefault("reading_level", "মধ্যম")
     if not isinstance(result["overview"], str) or not isinstance(result["key_findings"], list):
         raise RuntimeError("Paper summary contains invalid types; refusing to publish.")
     result["key_findings"] = [item for item in result["key_findings"] if isinstance(item, str)][:4]
     for field in ("field", "reading_level", "limitations", "practical_relevance"):
         if not isinstance(result[field], str):
-            result[field] = "Not specified"
+            result[field] = "তথ্য উল্লেখ করা হয়নি"
     return result
 
 
@@ -490,10 +535,9 @@ def get_research_paper() -> dict:
     except requests.RequestException:
         pass
     paper["summary"] = summarize_paper(paper["title"], paper["abstract"])
-    paper["verification_note"] = (
-        f"Title and abstract were retrieved from {paper['metadata_source']}. Source reachability only shows "
-        "whether the URL responded; it does not independently verify all claims or the AI summary."
-    )
+    paper["title_bn"] = paper["summary"]["title_bn"]
+    paper["verification_note"] = ("গবেষণার মূল উৎস পরীক্ষা করা হয়েছে। উৎসের ঠিকানা সক্রিয় থাকা মানেই "
+                                   "সব দাবি সঠিক প্রমাণিত নয়; গুরুত্বপূর্ণ তথ্য মূল গবেষণাপত্র থেকে যাচাই করুন।")
     return paper
 
 
@@ -517,10 +561,13 @@ def main() -> None:
     SITE.mkdir(parents=True, exist_ok=True)
     now = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=6)))
     date_label = now.strftime("%A, %d %B %Y")
+    date_label_bn = bangla_date(now)
     paper = get_research_paper()
     sector = BUSINESS_SECTORS[now.date().toordinal() % len(BUSINESS_SECTORS)]
-    prompt = f"""Create a valid JSON daily briefing for a user in Bangladesh.
-DATE: {date_label}. BUSINESS SECTOR FOR TODAY: {sector}.
+    prompt = f"""Create a valid JSON daily briefing for a user in Bangladesh. ALL HUMAN-FACING TEXT MUST BE IN NATURAL BENGALI (বাংলা).
+DATE: {date_label_bn}. BUSINESS SECTOR FOR TODAY: {sector}.
+All returned business and fact details MUST use Bengali script: business title, category, overview, customer, problem, revenue model, risks, first step, notes, demand reason, validation plan, every startup cost item name, both fact claims and both explanations.
+Use Bangla translations/transliterations of technology terms. English URLs and JSON keys are allowed, but no English descriptive content or English-only sentences.
 Choose ONE concrete, practical business idea from this real-world sector. Across days sectors rotate across offline/local retail, food, agriculture, services, manufacturing, logistics and occasionally IT/online. Do NOT default to IT.
 Explain credible recurring local demand, target customers, competitive factors and a low-cost test before committing capital.
 Do not promise profits, claim guaranteed success, or invent a 90-95% success probability. No fabricated market figures or supplier quotes.
@@ -543,7 +590,7 @@ Research paper will be supplied separately; do not generate one."""
     required_business = ("title", "category", "overview", "problem", "target_customer", "revenue_model", "first_step", "risks", "confidence_note", "demand_reason", "validation_plan")
     for field in required_business:
         if not isinstance(business_idea.get(field), str) or not business_idea[field].strip():
-            business_idea[field] = "Not specified"
+            business_idea[field] = "তথ্য উল্লেখ করা হয়নি"
     calculate_startup_costs(business_idea)
     for index, fact in enumerate(facts):
         for field in ("claim", "explanation"):
@@ -559,23 +606,24 @@ Return JSON with exactly two objects in facts, each having status (one of 'plaus
 FACTS: {json.dumps(facts, ensure_ascii=False)}"""
     fact_review_result = gemini_json(review_prompt)
     fact_review = validate_fact_review(facts, fact_review_result)
+    validate_bangla_briefing(business_idea, paper, facts)
 
     payload = {
         "date": date_label,
+        "date_bn": date_label_bn,
         "business_idea": business_idea,
         "research_paper": paper,
         "facts": facts,
         "fact_review": fact_review,
         "verification_note": (
-            "Research metadata was fetched from the named source and the URL was checked for reachability. "
-            "AI summaries and facts receive a second-model review, but this is not a guarantee of correctness. "
-            "Open the cited sources to verify important claims."
+            "গবেষণার তথ্য মূল উৎস থেকে নেওয়া হয়েছে এবং ঠিকানা পরীক্ষা করা হয়েছে। "
+            "কৃত্রিম বুদ্ধিমত্তার তৈরি সারাংশ ও তথ্য পুনরায় পর্যালোচনা করা হলেও শতভাগ নির্ভুলতার নিশ্চয়তা নেই। "
+            "গুরুত্বপূর্ণ দাবি মূল উৎস থেকে যাচাই করুন।"
         ),
     }
     output = SITE / "content.json"
     output.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     shutil.copy2(ROOT / "web" / "index.html", SITE / "index.html")
-    shutil.copy2(ROOT / "web" / "config.js", SITE / "config.js")
     print(f"Daily content generated for {date_label}: {output}")
 
 
