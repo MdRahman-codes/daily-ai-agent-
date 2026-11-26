@@ -1,0 +1,45 @@
+name: Send missing Bangla daily briefing (26 November)
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/send-missed-2026-11-26.yml']
+permissions:
+  contents: read
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Retrieve today's already-published Bengali briefing
+        run: |
+          python - <<'PY'
+          import json,requests
+          from datetime import datetime,timedelta,timezone
+          from pathlib import Path
+          url="https://mdrahman-codes.github.io/daily-ai-agent-/content.json?repair=2026-11-26"
+          r=requests.get(url,timeout=(6,20),headers={"Cache-Control":"no-cache"})
+          r.raise_for_status()
+          data=r.json()
+          now=datetime.now(timezone(timedelta(hours=6)))
+          expected=now.strftime("%A, %d %B %Y")
+          if data.get("date") != expected:
+              raise RuntimeError("The published briefing is not dated today in Bangladesh; refusing stale delivery")
+          if not data.get("date_bn") or not data.get("business_idea") or not data.get("research_paper"):
+              raise RuntimeError("Required Bengali briefing data unavailable")
+          if not isinstance(data.get("facts"),list) or len(data["facts"])!=2:
+              raise RuntimeError("Exactly two interesting facts are required")
+          Path("site").mkdir(exist_ok=True)
+          Path("site/content.json").write_text(json.dumps(data,ensure_ascii=False),encoding="utf-8")
+          print("Today's existing Bengali briefing validated.")
+          PY
+      - name: Send three Bengali messages in the normal daily format
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python notify.py
