@@ -1,92 +1,103 @@
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone, timedelta
 from unittest.mock import patch
-
 import check_today
 
-
 BDT = timezone(timedelta(hours=6))
-NOW = datetime(2026, 11, 26, 17, 45, tzinfo=BDT)
+MORNING = datetime(2026, 11, 27, 7, 5, tzinfo=BDT)
+LATE = datetime(2026, 11, 27, 7, 31, tzinfo=BDT)
 
 
-def run(run_id, *, kind="schedule", status="completed", created="2026-11-26T09:21:50Z"):
+def record(run_id, event="push", status="completed",
+           created="2026-11-27T01:02:00Z"):
     return {
-        "id": run_id,
-        "name": "Daily AI Agent",
-        "event": kind,
-        "status": status,
-        "created_at": created,
-        "conclusion": "success",
+        "id": run_id, "name": "Daily AI Agent", "event": event,
+        "status": status, "created_at": created, "conclusion": "success",
     }
 
 
-class DeliveryHistoryTests(unittest.TestCase):
-    def test_bangladesh_date_conversion(self):
-        self.assertEqual(check_today.bangladesh_day("2026-11-25T20:10:00Z"), "2026-11-26")
-        self.assertEqual(check_today.bangladesh_day("2026-11-26T09:21:50Z"), "2026-11-26")
+class MorningDeliveryTests(unittest.TestCase):
+    def test_local_window_start(self):
+        self.assertTrue(check_today.in_delivery_window(
+            datetime(2026, 11, 27, 7, tzinfo=BDT)))
 
-    def test_scheduled_run_without_successful_notification_is_not_skipped(self):
-        with patch("check_today.api_json", side_effect=[
-            {"workflow_runs": [run(100)]},
-            {"jobs": [
-                {"name": "build", "conclusion": "success"},
-                {"name": "deploy", "conclusion": "skipped"},
-                {"name": "notify", "conclusion": "skipped"},
-            ]},
-        ]) as api:
+    def test_local_window_end(self):
+        self.assertTrue(check_today.in_delivery_window(
+            datetime(2026, 11, 27, 7, 29, 59, tzinfo=BDT)))
+        self.assertFalse(check_today.in_delivery_window(LATE))
+
+    def test_nighttime_push_does_not_send_telegram(self):
+        with patch("check_today.api_json") as api:
+            self.assertTrue(check_today.should_skip("push", "owner/repo", "token",
+                                                    "2", now=datetime(
+                                                        2026, 11, 26, 19, tzinfo=BDT)))
+        api.assert_not_called()
+
+    def test_late_github_cron_skips(self):
+        with patch("check_today.api_json") as api:
+            self.assertTrue(check_today.should_skip(
+                "schedule", "owner/repo", "token", "2", now=LATE))
+        api.assert_not_called()
+
+    def test_morning_push_runs_when_not_sent(self):
+        with patch("check_today.api_json", return_value={"workflow_runs": []}):
             self.assertFalse(check_today.should_skip(
-                "schedule", "MdRahman-codes/daily-ai-agent-", "fake", "101", now=NOW
-            ))
+                "push", "owner/repo", "token", "2", now=MORNING))
+
+    def test_successful_push_prevents_duplicate_scheduled_run(self):
+        with patch("check_today.api_json", side_effect=[
+            {"workflow_runs": [record(1)]},
+            {"jobs": [{"name": "notify", "conclusion": "success"}]},
+        ]) as api:
+            self.assertTrue(check_today.should_skip(
+                "schedule", "owner/repo", "token", "2", now=MORNING))
         self.assertEqual(api.call_count, 2)
 
-    def test_skip_only_after_successful_scheduled_notification(self):
+    def test_successful_schedule_prevents_duplicate_push(self):
         with patch("check_today.api_json", side_effect=[
-            {"workflow_runs": [run(100)]},
+            {"workflow_runs": [record(1, event="schedule")]},
             {"jobs": [{"name": "notify", "conclusion": "success"}]},
         ]):
             self.assertTrue(check_today.should_skip(
-                "schedule", "MdRahman-codes/daily-ai-agent-", "fake", "101", now=NOW
-            ))
+                "push", "owner/repo", "token", "2", now=MORNING))
 
-    def test_manual_demo_notification_does_not_suppress_morning(self):
+    def test_demo_workflow_does_not_suppress_morning(self):
         with patch("check_today.api_json", return_value={
-            "workflow_runs": [run(100, kind="workflow_dispatch")]
-        }) as api:
+            "workflow_runs": [record(1, event="workflow_dispatch")]
+        }):
             self.assertFalse(check_today.should_skip(
-                "schedule", "MdRahman-codes/daily-ai-agent-", "fake", "101", now=NOW
-            ))
-        self.assertEqual(api.call_count, 1)
+                "schedule", "owner/repo", "token", "2", now=MORNING))
 
-    def test_previous_day_delivery_does_not_suppress_today(self):
-        with patch("check_today.api_json", return_value={
-            "workflow_runs": [run(100, created="2026-11-25T09:21:50Z")]
-        }) as api:
+    def test_skipped_notification_does_not_count_as_delivery(self):
+        with patch("check_today.api_json", side_effect=[
+            {"workflow_runs": [record(1)]},
+            {"jobs": [{"name": "notify", "conclusion": "skipped"}]},
+        ]):
             self.assertFalse(check_today.should_skip(
-                "schedule", "MdRahman-codes/daily-ai-agent-", "fake", "101", now=NOW
-            ))
-        self.assertEqual(api.call_count, 1)
+                "push", "owner/repo", "token", "2", now=MORNING))
 
-    def test_current_run_is_not_considered_delivered(self):
-        with patch("check_today.api_json", return_value={
-            "workflow_runs": [run(101)]
-        }) as api:
-            self.assertFalse(check_today.should_skip(
-                "schedule", "MdRahman-codes/daily-ai-agent-", "fake", "101", now=NOW
-            ))
-        self.assertEqual(api.call_count, 1)
-
-    def test_failed_api_prefers_delivery_over_silent_skip(self):
-        with patch("check_today.api_json", side_effect=OSError("temporary")):
-            self.assertFalse(check_today.should_skip(
-                "schedule", "MdRahman-codes/daily-ai-agent-", "fake", "101", now=NOW
-            ))
-
-    def test_manual_dispatch_always_runs_without_api(self):
+    def test_manual_dispatch_is_allowed_outside_window(self):
         with patch("check_today.api_json") as api:
             self.assertFalse(check_today.should_skip(
-                "workflow_dispatch", "MdRahman-codes/daily-ai-agent-", "fake", "101", now=NOW
-            ))
+                "workflow_dispatch", "owner/repo", "token", "2", now=LATE))
         api.assert_not_called()
+
+    def test_api_failure_prefers_attempt(self):
+        with patch("check_today.api_json", side_effect=OSError("fail")):
+            self.assertFalse(check_today.should_skip(
+                "push", "owner/repo", "token", "2", now=MORNING))
+
+    def test_bangladesh_day_from_utc(self):
+        self.assertEqual(check_today.bangladesh_day("2026-11-26T19:02:00Z"),
+                         "2026-11-27")
+
+    def test_current_run_is_ignored(self):
+        with patch("check_today.api_json", return_value={
+            "workflow_runs": [record(2)]
+        }) as api:
+            self.assertFalse(check_today.should_skip(
+                "push", "owner/repo", "token", "2", now=MORNING))
+        self.assertEqual(api.call_count, 1)
 
 
 if __name__ == "__main__":
